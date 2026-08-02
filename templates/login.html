@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}Giriş Yap - Fatura Otomasyonu{% endblock %}
+
+{% block content %}
+<div class="section" style="max-width: 450px;">
+  <div style="background: white; border-radius: 16px; padding: 40px; box-shadow: var(--shadow);">
+    <h2 style="text-align: center; margin-bottom: 25px;">Giriş Yap</h2>
+    
+    <form method="POST" action="{{ url_for('login') }}">
+      <div style="margin-bottom: 15px;">
+        <label style="display: block; margin-bottom: 5px; font-weight: 500;">E-Posta</label>
+        <input type="email" name="email" required style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px;">
+      </div>
+      
+      <div style="margin-bottom: 25px;">
+        <label style="display: block; margin-bottom: 5px; font-weight: 500;">Şifre</label>
+        <input type="password" name="password" required style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px;">
+      </div>
+
+      <button type="submit" class="btn-nav-primary" style="width: 100%; padding: 12px; font-size: 1rem; border: none; cursor: pointer;">Giriş Yap</button>
+    </form>
+
+    <p style="text-align: center; margin-top: 20px; font-size: 0.9rem; color: var(--muted);">
+      Hesabınız yok mu? <a href="{{ url_for('register') }}" style="color: var(--red); font-weight: 600;">Kayıt Olun</a>
+    </p>
+  </div>
+</div>
+{% endblock %}

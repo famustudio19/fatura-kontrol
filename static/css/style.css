@@ -1,0 +1,419 @@
+:root {
+  --tse-red: #B11823;
+  --tse-red-hover: #8F121B;
+  --bg-color: #EBF0F5;
+  --card-bg: #FFFFFF;
+  --card-border: #D1D9E6;
+  --input-bg: #E2E8F0;
+  --text-dark: #1F2937;
+  --text-muted: #6B7280;
+  --terminal-bg: #1A1F26;
+  --terminal-text: #6B7280;
+  --ad-bg: #F8FAFC;
+  --ad-border: #CBD5E1;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-dark);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 20px 0;
+}
+
+/* NAVBAR / FOOTER GİZLE */
+.navbar, .footer { display: none !important; }
+
+/* ─── SAYFA YAPISI: SOL REKLAM + UYGULAMA + SAĞ REKLAM ─── */
+.page-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  width: 100%;
+  max-width: 1160px;
+  padding: 0 12px;
+}
+
+/* YAN REKLAM PANELLER */
+.ad-sidebar {
+  width: 160px;
+  min-width: 160px;
+  position: sticky;
+  top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ad-box {
+  background: var(--ad-bg);
+  border: 1px dashed var(--ad-border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #94A3B8;
+  font-size: 0.78rem;
+  text-align: center;
+  padding: 12px 8px;
+}
+
+.ad-box-tall  { height: 400px; }
+.ad-box-short { height: 200px; }
+
+.ad-box .ad-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #CBD5E1;
+  border: 1px solid #E2E8F0;
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
+/* ANA UYGULAMA */
+.app-container {
+  flex: 1;
+  min-width: 0;
+  max-width: 640px;
+  background: var(--bg-color);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* TSE HEADER */
+.tse-header {
+  background: var(--tse-red);
+  color: white;
+  padding: 20px 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.tse-subtitle {
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  opacity: 0.9;
+  margin-bottom: 4px;
+}
+
+.tse-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.tse-version {
+  font-size: 1.1rem;
+  font-weight: 400;
+  opacity: 0.8;
+}
+
+/* KOTA ROZET ÇUBUĞU */
+.quota-bar {
+  background: #FFF7ED;
+  border-bottom: 1px solid #FED7AA;
+  padding: 8px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.85rem;
+}
+
+.quota-bar.quota-ok   { background: #F0FDF4; border-color: #BBF7D0; }
+.quota-bar.quota-low  { background: #FFF7ED; border-color: #FED7AA; }
+.quota-bar.quota-out  { background: #FEF2F2; border-color: #FECACA; }
+
+.quota-text { font-weight: 600; color: var(--text-dark); }
+.quota-sub  { font-size: 0.78rem; color: var(--text-muted); }
+
+.btn-watch-ad {
+  background: #F59E0B;
+  color: white;
+  border: none;
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.btn-watch-ad:hover { background: #D97706; }
+
+/* APP BODY */
+.app-body {
+  padding: 20px 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* KARTLAR */
+.tse-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.card-icon {
+  font-size: 1.5rem;
+  width: 32px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: var(--text-dark);
+}
+
+.card-text { width: 200px; }
+
+.card-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.card-desc {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.3;
+  margin-top: 4px;
+}
+
+.card-input-wrap {
+  flex: 1;
+  background: var(--input-bg);
+  border: 1px solid #CBD5E1;
+  border-radius: 6px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.input-placeholder {
+  font-size: 0.85rem;
+  color: var(--text-dark);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.tse-btn {
+  background: var(--tse-red);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+.tse-btn:hover { background: var(--tse-red-hover); }
+
+/* İŞLEMİ BAŞLAT */
+.start-btn-wrap {
+  margin: 8px 0;
+  display: flex;
+  justify-content: center;
+}
+
+.tse-start-btn {
+  width: 100%;
+  height: 48px;
+  background: var(--tse-red);
+  color: white;
+  border: none;
+  border-radius: 24px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: all 0.2s;
+}
+.tse-start-btn:hover  { background: var(--tse-red-hover); }
+.tse-start-btn:disabled { background: #9CA3AF; cursor: not-allowed; }
+
+.play-icon { font-size: 1rem; }
+
+/* LOG KARTI */
+.log-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.log-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px 12px;
+}
+
+.log-title { font-size: 1.1rem; font-weight: 700; }
+
+.log-status {
+  font-size: 0.9rem;
+  color: #374151;
+  font-weight: 500;
+}
+
+.log-status::before {
+  content: '●';
+  color: #10B981;
+  margin-right: 6px;
+}
+
+.log-progress-bar {
+  background: #E5E7EB;
+  height: 4px;
+  width: calc(100% - 40px);
+  margin: 0 20px 12px;
+}
+
+.log-progress-fill {
+  background: var(--tse-red);
+  height: 100%;
+  width: 0%;
+  transition: width 0.4s ease;
+}
+
+.log-terminal {
+  background: var(--terminal-bg);
+  color: var(--terminal-text);
+  font-family: 'Consolas', monospace;
+  font-size: 0.85rem;
+  padding: 16px 20px;
+  height: 140px;
+  overflow-y: auto;
+  line-height: 1.6;
+}
+
+/* ALTBİLGİ */
+.tse-footer {
+  background: #E5E7EB;
+  text-align: center;
+  padding: 12px;
+  font-size: 0.85rem;
+  color: var(--text-dark);
+  font-weight: 500;
+}
+
+/* ─── REKLAM İZLE MODAL ─── */
+.ad-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+.ad-modal-overlay.active { display: flex; }
+
+.ad-modal {
+  background: white;
+  border-radius: 16px;
+  padding: 32px;
+  width: 380px;
+  max-width: 95vw;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  animation: modal-pop 0.25s ease;
+}
+
+@keyframes modal-pop {
+  from { transform: scale(0.85); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+.ad-modal h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 8px; }
+.ad-modal p  { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px; }
+
+.ad-placeholder {
+  background: #F1F5F9;
+  border: 2px dashed #CBD5E1;
+  border-radius: 10px;
+  height: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #94A3B8;
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+}
+
+.ad-timer {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--tse-red);
+}
+
+.btn-claim {
+  width: 100%;
+  background: #10B981;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.btn-claim:hover    { background: #059669; }
+.btn-claim:disabled { background: #9CA3AF; cursor: not-allowed; }
+
+.btn-modal-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-top: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* RESPONSIVE */
+@media (max-width: 960px) {
+  .ad-sidebar { display: none; }
+  .page-layout { justify-content: center; }
+}

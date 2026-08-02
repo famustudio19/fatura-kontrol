@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Fiyatlandırma - Fatura Otomasyonu{% endblock %}
+
+{% block content %}
+<div class="section">
+  <h2 class="section-title">İhtiyacınıza Uygun Planı Seçin</h2>
+  
+  <div class="pricing-grid">
+    <div class="price-card">
+      <h3>Ücretsiz</h3>
+      <div style="font-size: 2rem; font-weight: 800; margin: 15px 0;">0 ₺ <span style="font-size: 1rem; font-weight: 400;">/ay</span></div>
+      <ul style="list-style: none; margin-bottom: 25px; line-height: 2;">
+        <li>✓ Ayda 5 PDF Dönüştürme</li>
+        <li>✓ Reklamlı Kullanım</li>
+        <li>✓ Standart Destek</li>
+      </ul>
+      <a href="{{ url_for('register') }}" class="btn-nav-ghost" style="display: block; text-align: center; text-decoration: none;">Başla</a>
+    </div>
+
+    <div class="price-card featured">
+      <span class="badge-featured">En Popüler</span>
+      <h3>Profesyonel</h3>
+      <div style="font-size: 2rem; font-weight: 800; margin: 15px 0; color: var(--red);">299 ₺ <span style="font-size: 1rem; font-weight: 400; color: var(--text);">/ay</span></div>
+      <ul style="list-style: none; margin-bottom: 25px; line-height: 2;">
+        <li>✓ Sınırsız PDF Dönüştürme</li>
+        <li>✓ Reklamsız Deneyim</li>
+        <li>✓ Öncelikli İşlem Hızı</li>
+        <li>✓ 7/24 Destek</li>
+      </ul>
+      <a href="#" class="btn-nav-primary" style="display: block; text-align: center; text-decoration: none;">Satın Al</a>
+    </div>
+
+    <div class="price-card">
+      <h3>Kurumsal</h3>
+      <div style="font-size: 2rem; font-weight: 800; margin: 15px 0;">799 ₺ <span style="font-size: 1rem; font-weight: 400;">/ay</span></div>
+      <ul style="list-style: none; margin-bottom: 25px; line-height: 2;">
+        <li>✓ Sınırsız PDF Dönüştürme</li>
+        <li>✓ Reklamsız Deneyim</li>
+        <li>✓ Çoklu Kullanıcı & API</li>
+        <li>✓ Özel Hizmet Garantisi (SLA)</li>
+      </ul>
+      <a href="#" class="btn-nav-ghost" style="display: block; text-align: center; text-decoration: none;">İletişime Geç</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

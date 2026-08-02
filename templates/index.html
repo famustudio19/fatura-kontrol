@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="hero">
+  <div class="hero-inner">
+    <h1>PDF Faturalarınızı Saniyeler İçinde Excel'e Aktarın</h1>
+    <p>TSE başvurularınızı otomatik olarak işleyin. Hatasız, hızlı ve profesyonel şablon aktarımı.</p>
+    <div class="hero-btns">
+      <a href="{{ url_for('register') }}" class="btn-hero-primary">Ücretsiz Başla</a>
+      <a href="#features" class="btn-hero-ghost">Özellikleri İncele</a>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="features">
+  <h2 class="section-title">Neden Biz?</h2>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">⚡</div>
+      <h3>Otomatik Okuma</h3>
+      <p>PDF belgelerinizdeki veriler akıllı biçimde ayrıştırılır ve hatasız biçimde çıkarılır.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📄</div>
+      <h3>Birebir Şablon Koruma</h3>
+      <p>Orijinal TSE Excel formatınızdaki logolar, renkler ve hücre düzenleri eksiksiz korunur.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🚀</div>
+      <h3>Anında İndirme</h3>
+      <p>Oluşturulan Excel ve PDF çıktılarınızı hemen indirip kullanmaya başlayabilirsiniz.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Adsense Banner Slot -->
+<div class="section">
+  <div class="adsense-slot">
+    <!-- Google AdSense Reklam Alanı (Ana Sayfa Banner) -->
+    <span>Reklam Alanı</span>
+  </div>
+</div>
+{% endblock %}

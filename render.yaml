@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: fatura-otomasyonu
+    env: python
+    plan: free
+    buildCommand: |
+      apt-get install -y libreoffice --no-install-recommends
+      pip install -r requirements.txt
+    startCommand: gunicorn app:app --workers 2 --timeout 120
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+    disk:
+      name: uploads
+      mountPath: /opt/render/project/src/uploads
+      sizeGB: 1

@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block title %}Fatura Aktarım Otomasyonu v2.0{% endblock %}
+
+{% block content %}
+
+<!-- ─── SAYFA YAPISI: SOL REKLAM + UYGULAMA + SAĞ REKLAM ─── -->
+<div class="page-layout">
+
+  <!-- SOL REKLAM SIDEBAR -->
+  <div class="ad-sidebar" id="adSidebarLeft">
+    <div class="ad-box ad-box-tall">
+      <span class="ad-label">Reklam</span>
+      <!-- Google AdSense kodu buraya -->
+      <!-- <ins class="adsbygoogle" style="display:inline-block;width:160px;height:400px"
+           data-ad-client="{{ adsense_client }}"
+           data-ad-slot="{{ adsense_slot_left }}"></ins> -->
+      <span style="font-size:1.5rem">📢</span>
+      <span>160×400<br>Reklam Alanı</span>
+    </div>
+    <div class="ad-box ad-box-short">
+      <span class="ad-label">Reklam</span>
+      <span style="font-size:1.5rem">📣</span>
+      <span>160×200<br>Reklam Alanı</span>
+    </div>
+  </div>
+
+  <!-- ANA UYGULAMA -->
+  <div class="app-container">
+
+    <!-- HEADER -->
+    <div class="tse-header">
+      <div class="tse-header-content">
+        <div class="tse-subtitle">TÜRK STANDARDLARI ENSTİTÜSÜ</div>
+        <h1 class="tse-title">Fatura Aktarım Otomasyonu</h1>
+      </div>
+      <div class="tse-version">v2.0</div>
+    </div>
+
+    <!-- KOTA ÇUBUĞU -->
+    <div class="quota-bar {% if remaining >= 3 %}quota-ok{% elif remaining > 0 %}quota-low{% else %}quota-out{% endif %}"
+         id="quotaBar">
+      <div>
+        <div class="quota-text">
+          {% if remaining > 0 %}
+            📄 Günlük <strong>{{ remaining }}</strong> PDF işleme hakkınız kaldı
+          {% else %}
+            🚫 Günlük limitiniz doldu
+          {% endif %}
+        </div>
+        <div class="quota-sub">Ücretsiz plan: günde {{ free_limit }} PDF</div>
+      </div>
+      {% if remaining <= 2 %}
+      <button class="btn-watch-ad" id="watchAdBtn" onclick="openAdModal()">
+        📺 Reklam İzle +{{ ad_reward }} Hak Kazan
+      </button>
+      {% endif %}
+    </div>
+
+    <!-- MAIN BODY -->
+    <div class="app-body">
+
+      <!-- KART 1: PDF Klasörü -->
+      <div class="tse-card">
+        <div class="card-icon">📁</div>
+        <div class="card-text">
+          <div class="card-title">PDF Klasörü</div>
+          <div class="card-desc">Başvuru PDF dosyalarının<br>bulunduğu klasörü seçin</div>
+        </div>
+        <div class="card-input-wrap" id="dropzonePdf">
+          <input type="file" id="pdfFileInput" multiple accept=".pdf" webkitdirectory directory style="display:none;">
+          <span id="pdfFileLabel" class="input-placeholder">Klasör seçin...</span>
+        </div>
+        <button class="tse-btn" onclick="document.getElementById('pdfFileInput').click()">Klasör Seç</button>
+      </div>
+
+      <!-- KART 2: Excel Şablonu -->
+      <div class="tse-card">
+        <div class="card-icon">📄</div>
+        <div class="card-text">
+          <div class="card-title">Excel Şablonu</div>
+          <div class="card-desc">Boş FATURA2026.xlsx şablon<br>dosyasını seçin</div>
+        </div>
+        <div class="card-input-wrap">
+          <input type="file" id="excelFileInput" accept=".xlsx, .xls" style="display:none;">
+          <span id="excelFileLabel" class="input-placeholder">Excel şablonu seçin...</span>
+        </div>
+        <button class="tse-btn" onclick="document.getElementById('excelFileInput').click()">Dosya Seç</button>
+      </div>
+
+      <!-- KART 3: Çıktı Klasörü -->
+      <div class="tse-card">
+        <div class="card-icon">💾</div>
+        <div class="card-text">
+          <div class="card-title">Çıktı Klasörü</div>
+          <div class="card-desc">Oluşturulan Excel ve PDF<br>dosyalarının kaydedileceği klasör</div>
+        </div>
+        <div class="card-input-wrap">
+          <span id="outputStatusLabel" class="input-placeholder">İşlem sonrası otomatik seçilir</span>
+        </div>
+        <button class="tse-btn" id="outFolderBtn">Klasör Seç</button>
+      </div>
+
+      <!-- İŞLEMİ BAŞLAT -->
+      <div class="start-btn-wrap">
+        <button id="webStartBtn" class="tse-start-btn">
+          <span class="play-icon">▶</span> İŞLEMİ BAŞLAT
+        </button>
+      </div>
+
+      <!-- İŞLEM GÜNLÜĞÜ -->
+      <div class="log-card">
+        <div class="log-header">
+          <span class="log-title">İşlem Günlüğü</span>
+          <span class="log-status" id="logStatusText">Hazır — Dosyaları seçip İşlemi Başlatın</span>
+        </div>
+        <div class="log-progress-bar">
+          <div class="log-progress-fill" id="webProgressBar"></div>
+        </div>
+        <div class="log-terminal" id="webTerminal"></div>
+      </div>
+
+    </div>
+
+    <!-- ALTBİLGİ -->
+    <div class="tse-footer">
+      © Türk Standardları Enstitüsü | Muayene Gözetim Merkezi Başkanlığı
+    </div>
+
+  </div><!-- /app-container -->
+
+  <!-- SAĞ REKLAM SIDEBAR -->
+  <div class="ad-sidebar" id="adSidebarRight">
+    <div class="ad-box ad-box-tall">
+      <span class="ad-label">Reklam</span>
+      <!-- Google AdSense kodu buraya -->
+      <!-- <ins class="adsbygoogle" style="display:inline-block;width:160px;height:400px"
+           data-ad-client="{{ adsense_client }}"
+           data-ad-slot="{{ adsense_slot_right }}"></ins> -->
+      <span style="font-size:1.5rem">📢</span>
+      <span>160×400<br>Reklam Alanı</span>
+    </div>
+    <div class="ad-box ad-box-short">
+      <span class="ad-label">Reklam</span>
+      <span style="font-size:1.5rem">📣</span>
+      <span>160×200<br>Reklam Alanı</span>
+    </div>
+  </div>
+
+</div><!-- /page-layout -->
+
+<!-- ─── REKLAM İZLE MODAL ─── -->
+<div class="ad-modal-overlay" id="adModalOverlay">
+  <div class="ad-modal">
+    <h3>📺 Reklam İzle, Hak Kazan!</h3>
+    <p>Kısa bir reklam izleyerek <strong>+{{ ad_reward }} PDF</strong> işleme hakkı kazanın.</p>
+
+    <div class="ad-placeholder">
+      <!-- Gerçek rewarded ad buraya gelecek -->
+      <!-- Örn: Google AdSense Rewarded veya başka bir ağ -->
+      <div class="ad-timer" id="adTimerDisplay">5</div>
+      <span>Reklam yükleniyor...</span>
+      <span style="font-size:0.78rem; color:#CBD5E1;">
+        (AdSense onayı sonrası gerçek reklam burada gösterilecek)
+      </span>
+    </div>
+
+    <button class="btn-claim" id="btnClaimReward" disabled onclick="claimReward()">
+      ⏳ Lütfen bekleyin...
+    </button>
+    <br>
+    <button class="btn-modal-close" onclick="closeAdModal()">İptal et</button>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // ─── Sunucudan gelen başlangıç değerleri ───
+  let serverRemaining = {{ remaining }};
+  const adRewardCount = {{ ad_reward }};
+</script>
+{% endblock %}

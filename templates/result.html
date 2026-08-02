@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}İşlem Sonuçları - Fatura Otomasyonu{% endblock %}
+
+{% block content %}
+<div class="section" style="max-width: 800px;">
+  <div style="background: white; border-radius: 16px; padding: 40px; box-shadow: var(--shadow); text-align: center;">
+    <div style="font-size: 3rem; margin-bottom: 10px;">✅</div>
+    <h2>İşlem Başarıyla Tamamlandı!</h2>
+    <p style="color: var(--muted); margin-top: 8px;">Dönüştürülen dosyalarınızı aşağıdan indirebilirsiniz.</p>
+
+    <div style="margin: 30px 0; text-align: left;">
+      {% for file in files %}
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: #F8FAFC; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px;">
+        <span style="font-weight: 500;">
+          {% if file.endswith('.xlsx') %}📊{% else %}📄{% endif %} {{ file }}
+        </span>
+        <a href="{{ url_for('download', job_id=job_id, filename=file) }}" class="btn-nav-primary" style="text-decoration: none; font-size: 0.9rem;">
+          İndir
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+
+    <a href="{{ url_for('upload') }}" class="btn-nav-ghost" style="text-decoration: none; display: inline-block;">Yeni İşlem Yap</a>
+  </div>
+
+  <div class="adsense-slot">
+    <!-- Google AdSense Reklam Alanı (Sonuç Sayfası) -->
+    <span>Reklam Alanı</span>
+  </div>
+</div>
+{% endblock %}
