@@ -211,13 +211,49 @@ def process_excel(template_path, out_excel, out_pdf, data):
 
     # Eğer Windows COM yoksa veya başarısız olursa (Linux ortamı için LibreOffice)
     if not pdf_converted:
-        try:
-            cmd = ["soffice", "--headless", "--convert-to", "pdf", "--outdir", os.path.dirname(os.path.abspath(out_pdf)), os.path.abspath(out_excel)]
-            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            pdf_converted = True
-        except Exception:
-            # LibreOffice yoksa Excel dosyasının kopyasını .pdf adı ile oluşturma uyarısı
-            pass
+        # LibreOffice'i birden fazla olası yoldan dene
+        soffice_paths = [
+            "soffice",
+            "/usr/bin/soffice",
+            "/usr/lib/libreoffice/program/soffice",
+            "/opt/libreoffice/program/soffice",
+        ]
+        last_err = None
+        for soffice_bin in soffice_paths:
+            try:
+                cmd = [
+                    soffice_bin, "--headless", "--convert-to", "pdf",
+                    "--outdir", os.path.dirname(os.path.abspath(out_pdf)),
+                    os.path.abspath(out_excel)
+                ]
+                result = subprocess.run(
+                    cmd, check=True,
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                    timeout=60
+                )
+                # LibreOffice bazen çıktı dosyasını farklı isimle oluşturur
+                # (xlsx → xlsx.pdf yerine xlsx adıyla) — kontrol edelim
+                expected_pdf = os.path.abspath(out_pdf)
+                lo_pdf = os.path.splitext(os.path.abspath(out_excel))[0] + ".pdf"
+                if not os.path.exists(expected_pdf) and os.path.exists(lo_pdf):
+                    os.rename(lo_pdf, expected_pdf)
+                pdf_converted = True
+                break
+            except FileNotFoundError:
+                last_err = f"{soffice_bin} bulunamadı"
+                continue
+            except subprocess.TimeoutExpired:
+                last_err = "PDF dönüşümü zaman aşımına uğradı"
+                break
+            except subprocess.CalledProcessError as e:
+                last_err = e.stderr.decode(errors='ignore') if e.stderr else str(e)
+                break
+
+        if not pdf_converted:
+            raise RuntimeError(
+                f"PDF oluşturulamadı — LibreOffice kurulu değil veya hata verdi. "
+                f"Detay: {last_err}"
+            )
 
 
 # ─── IP BAZLI KOTA TAKIBI (veritabanı gerektirmiyor) ──────────────────────────
