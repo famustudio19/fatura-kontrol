@@ -325,7 +325,16 @@ body {
   line-height: 1.6;
 }
 
-/* ALTBİLGİ */
+/* MAIN WRAPPER & ALTBİLGİ */
+.app-main-wrapper {
+  flex: 1;
+  min-width: 0;
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .tse-footer {
   background: #E5E7EB;
   text-align: center;
@@ -333,6 +342,67 @@ body {
   font-size: 0.85rem;
   color: var(--text-dark);
   font-weight: 500;
+}
+
+.footer-links {
+  margin-top: 6px;
+  font-size: 0.8rem;
+}
+
+.footer-links a {
+  color: var(--tse-red);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.footer-links a:hover {
+  text-decoration: underline;
+}
+
+/* SHIK KATLANABİLİR SSS VE REHBER AKORDİYON */
+.info-accordion {
+  background: white;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.info-summary {
+  padding: 12px 18px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--text-dark);
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+  background: #F8FAFC;
+}
+
+.info-summary:hover {
+  background: #F1F5F9;
+}
+
+.info-content {
+  padding: 16px 20px;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: #475569;
+  border-top: 1px solid #E2E8F0;
+}
+
+.info-content h3 {
+  font-size: 0.95rem;
+  color: var(--tse-red);
+  margin: 10px 0 4px;
+}
+.info-content h3:first-child { margin-top: 0; }
+
+.info-content ol {
+  margin-left: 20px;
+  margin-bottom: 10px;
 }
 
 /* ─── REKLAM İZLE MODAL ─── */

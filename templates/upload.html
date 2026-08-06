@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Fatura Aktarım Otomasyonu v2.0{% endblock %}
+{% block title %}Fatura Aktarım Otomasyonu v2.0 | TSE Uyumlu Excel ve PDF Dönüştürücü{% endblock %}
 
 {% block content %}
 
@@ -11,139 +11,174 @@
   <div class="ad-sidebar" id="adSidebarLeft">
     <div class="ad-box ad-box-tall">
       <span class="ad-label">Reklam</span>
-      <!-- Google AdSense kodu buraya -->
-      <!-- <ins class="adsbygoogle" style="display:inline-block;width:160px;height:400px"
+      <!-- Google AdSense Kodu -->
+      <ins class="adsbygoogle"
+           style="display:inline-block;width:160px;height:400px"
            data-ad-client="{{ adsense_client }}"
-           data-ad-slot="{{ adsense_slot_left }}"></ins> -->
-      <span style="font-size:1.5rem">📢</span>
-      <span>160×400<br>Reklam Alanı</span>
+           data-ad-slot="{{ adsense_slot_left }}"></ins>
+      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
     </div>
     <div class="ad-box ad-box-short">
       <span class="ad-label">Reklam</span>
-      <span style="font-size:1.5rem">📣</span>
-      <span>160×200<br>Reklam Alanı</span>
+      <ins class="adsbygoogle"
+           style="display:inline-block;width:160px;height:200px"
+           data-ad-client="{{ adsense_client }}"
+           data-ad-slot="{{ adsense_slot_left }}"></ins>
+      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
     </div>
   </div>
 
-  <!-- ANA UYGULAMA -->
-  <div class="app-container">
+  <!-- ANA UYGULAMA CONTAINER -->
+  <div class="app-main-wrapper">
+    <div class="app-container">
 
-    <!-- HEADER -->
-    <div class="tse-header">
-      <div class="tse-header-content">
-        <div class="tse-subtitle">TÜRK STANDARDLARI ENSTİTÜSÜ</div>
-        <h1 class="tse-title">Fatura Aktarım Otomasyonu</h1>
-      </div>
-      <div class="tse-version">v2.0</div>
-    </div>
-
-    <!-- KOTA ÇUBUĞU -->
-    <div class="quota-bar {% if remaining >= 3 %}quota-ok{% elif remaining > 0 %}quota-low{% else %}quota-out{% endif %}"
-         id="quotaBar">
-      <div>
-        <div class="quota-text">
-          {% if remaining > 0 %}
-            📄 Günlük <strong>{{ remaining }}</strong> PDF işleme hakkınız kaldı
-          {% else %}
-            🚫 Günlük limitiniz doldu
-          {% endif %}
+      <!-- HEADER -->
+      <div class="tse-header">
+        <div class="tse-header-content">
+          <div class="tse-subtitle">TÜRK STANDARDLARI ENSTİTÜSÜ</div>
+          <h1 class="tse-title">Fatura Aktarım Otomasyonu</h1>
         </div>
-        <div class="quota-sub">Ücretsiz plan: günde {{ free_limit }} PDF</div>
-      </div>
-      {% if remaining <= 2 %}
-      <button class="btn-watch-ad" id="watchAdBtn" onclick="openAdModal()">
-        📺 Reklam İzle +{{ ad_reward }} Hak Kazan
-      </button>
-      {% endif %}
-    </div>
-
-    <!-- MAIN BODY -->
-    <div class="app-body">
-
-      <!-- KART 1: PDF Klasörü -->
-      <div class="tse-card">
-        <div class="card-icon">📁</div>
-        <div class="card-text">
-          <div class="card-title">PDF Klasörü</div>
-          <div class="card-desc">Başvuru PDF dosyalarının<br>bulunduğu klasörü seçin</div>
-        </div>
-        <div class="card-input-wrap" id="dropzonePdf">
-          <input type="file" id="pdfFileInput" multiple accept=".pdf" webkitdirectory directory style="display:none;">
-          <span id="pdfFileLabel" class="input-placeholder">Klasör seçin...</span>
-        </div>
-        <button class="tse-btn" onclick="document.getElementById('pdfFileInput').click()">Klasör Seç</button>
+        <div class="tse-version">v2.0</div>
       </div>
 
-      <!-- KART 2: Excel Şablonu -->
-      <div class="tse-card">
-        <div class="card-icon">📄</div>
-        <div class="card-text">
-          <div class="card-title">Excel Şablonu</div>
-          <div class="card-desc">Boş FATURA2026.xlsx şablon<br>dosyasını seçin</div>
+      <!-- KOTA ÇUBUĞU -->
+      <div class="quota-bar {% if remaining >= 3 %}quota-ok{% elif remaining > 0 %}quota-low{% else %}quota-out{% endif %}"
+           id="quotaBar">
+        <div>
+          <div class="quota-text">
+            {% if remaining > 0 %}
+              📄 Günlük <strong>{{ remaining }}</strong> PDF işleme hakkınız kaldı
+            {% else %}
+              🚫 Günlük limitiniz doldu
+            {% endif %}
+          </div>
+          <div class="quota-sub">Ücretsiz plan: günde {{ free_limit }} PDF</div>
         </div>
-        <div class="card-input-wrap">
-          <input type="file" id="excelFileInput" accept=".xlsx, .xls" style="display:none;">
-          <span id="excelFileLabel" class="input-placeholder">Excel şablonu seçin...</span>
-        </div>
-        <button class="tse-btn" onclick="document.getElementById('excelFileInput').click()">Dosya Seç</button>
-      </div>
-
-      <!-- KART 3: Çıktı Klasörü -->
-      <div class="tse-card">
-        <div class="card-icon">💾</div>
-        <div class="card-text">
-          <div class="card-title">Çıktı Klasörü</div>
-          <div class="card-desc">Oluşturulan Excel ve PDF<br>dosyalarının kaydedileceği klasör</div>
-        </div>
-        <div class="card-input-wrap">
-          <span id="outputStatusLabel" class="input-placeholder">İşlem sonrası otomatik seçilir</span>
-        </div>
-        <button class="tse-btn" id="outFolderBtn">Klasör Seç</button>
-      </div>
-
-      <!-- İŞLEMİ BAŞLAT -->
-      <div class="start-btn-wrap">
-        <button id="webStartBtn" class="tse-start-btn">
-          <span class="play-icon">▶</span> İŞLEMİ BAŞLAT
+        {% if remaining <= 2 %}
+        <button class="btn-watch-ad" id="watchAdBtn" onclick="openAdModal()">
+          📺 Reklam İzle +{{ ad_reward }} Hak Kazan
         </button>
+        {% endif %}
       </div>
 
-      <!-- İŞLEM GÜNLÜĞÜ -->
-      <div class="log-card">
-        <div class="log-header">
-          <span class="log-title">İşlem Günlüğü</span>
-          <span class="log-status" id="logStatusText">Hazır — Dosyaları seçip İşlemi Başlatın</span>
+      <!-- MAIN BODY -->
+      <div class="app-body">
+
+        <!-- KART 1: PDF Klasörü -->
+        <div class="tse-card">
+          <div class="card-icon">📁</div>
+          <div class="card-text">
+            <div class="card-title">PDF Klasörü</div>
+            <div class="card-desc">Başvuru PDF dosyalarının<br>bulunduğu klasörü seçin</div>
+          </div>
+          <div class="card-input-wrap" id="dropzonePdf">
+            <input type="file" id="pdfFileInput" multiple accept=".pdf" webkitdirectory directory style="display:none;">
+            <span id="pdfFileLabel" class="input-placeholder">Klasör seçin...</span>
+          </div>
+          <button class="tse-btn" onclick="document.getElementById('pdfFileInput').click()">Klasör Seç</button>
         </div>
-        <div class="log-progress-bar">
-          <div class="log-progress-fill" id="webProgressBar"></div>
+
+        <!-- KART 2: Excel Şablonu -->
+        <div class="tse-card">
+          <div class="card-icon">📄</div>
+          <div class="card-text">
+            <div class="card-title">Excel Şablonu</div>
+            <div class="card-desc">Boş FATURA2026.xlsx şablon<br>dosyasını seçin</div>
+          </div>
+          <div class="card-input-wrap">
+            <input type="file" id="excelFileInput" accept=".xlsx, .xls" style="display:none;">
+            <span id="excelFileLabel" class="input-placeholder">Excel şablonu seçin...</span>
+          </div>
+          <button class="tse-btn" onclick="document.getElementById('excelFileInput').click()">Dosya Seç</button>
         </div>
-        <div class="log-terminal" id="webTerminal"></div>
+
+        <!-- KART 3: Çıktı Klasörü -->
+        <div class="tse-card">
+          <div class="card-icon">💾</div>
+          <div class="card-text">
+            <div class="card-title">Çıktı Klasörü</div>
+            <div class="card-desc">Oluşturulan Excel ve PDF<br>dosyalarının kaydedileceği klasör</div>
+          </div>
+          <div class="card-input-wrap">
+            <span id="outputStatusLabel" class="input-placeholder">İşlem sonrası otomatik seçilir</span>
+          </div>
+          <button class="tse-btn" id="outFolderBtn">Klasör Seç</button>
+        </div>
+
+        <!-- İŞLEMİ BAŞLAT -->
+        <div class="start-btn-wrap">
+          <button id="webStartBtn" class="tse-start-btn">
+            <span class="play-icon">▶</span> İŞLEMİ BAŞLAT
+          </button>
+        </div>
+
+        <!-- İŞLEM GÜNLÜĞÜ -->
+        <div class="log-card">
+          <div class="log-header">
+            <span class="log-title">İşlem Günlüğü</span>
+            <span class="log-status" id="logStatusText">Hazır — Dosyaları seçip İşlemi Başlatın</span>
+          </div>
+          <div class="log-progress-bar">
+            <div class="log-progress-fill" id="webProgressBar"></div>
+          </div>
+          <div class="log-terminal" id="webTerminal"></div>
+        </div>
+
+      </div><!-- /app-body -->
+
+      <!-- ALTBİLGİ & POLİTİKA LİNKLERİ -->
+      <div class="tse-footer">
+        <div>© Türk Standardları Enstitüsü | Muayene Gözetim Merkezi Başkanlığı Uyumlu Araç</div>
+        <div class="footer-links">
+          <a href="#" onclick="openPolicyModal('privacy'); return false;">Gizlilik Politikası</a> •
+          <a href="#" onclick="openPolicyModal('terms'); return false;">Kullanım Şartları</a> •
+          <a href="#" onclick="openPolicyModal('contact'); return false;">İletişim</a>
+        </div>
       </div>
 
-    </div>
+    </div><!-- /app-container -->
 
-    <!-- ALTBİLGİ -->
-    <div class="tse-footer">
-      © Türk Standardları Enstitüsü | Muayene Gözetim Merkezi Başkanlığı
-    </div>
+    <!-- ŞIK AKORDİYON REHBER & SSS (AdSense Uyumlu, Sayfayı Kalabalıklaştırmayan Katlanabilir Bölüm) -->
+    <details class="info-accordion">
+      <summary class="info-summary">
+        <span>📖 Kullanım Rehberi & Sıkça Sorulan Sorular (SSS)</span>
+        <span class="accordion-icon">▼</span>
+      </summary>
+      <div class="info-content">
+        <h3>Fatura Aktarım Otomasyonu Nedir?</h3>
+        <p>TSE (Türk Standardları Enstitüsü) başvuru belgelerinden (PDF) fatura verilerini otomatik olarak okuyarak standart Excel şablonuna ve PDF çıktılarına dönüştüren çevrimiçi otomasyon aracıdır.</p>
+        
+        <h3>Nasıl Kullanılır?</h3>
+        <ol>
+          <li><strong>PDF Klasörü Seçin:</strong> İşlemek istediğiniz başvuru PDF dosyalarının yer aldığı klasörü seçin.</li>
+          <li><strong>Excel Şablonu Seçin:</strong> İmzalı veya standart <code>FATURA2026.xlsx</code> şablon dosyanızı yükleyin.</li>
+          <li><strong>İşlemi Başlatın:</strong> Sistem verileri analiz ederek çıktı dosyalarınızı saniyeler içinde hazırlar.</li>
+        </ol>
 
-  </div><!-- /app-container -->
+        <h3>Veri Güvenliği ve Gizlilik</h3>
+        <p>Yüklenen başvuru dosyalarınız sadece işlem süresince geçici bellekte işlenir ve işlem tamamlandıktan hemen sonra sunucudan kalıcı olarak silinir. Kişisel veya kurumsal verileriniz üçüncü şahıslarla paylaşılmaz.</p>
+      </div>
+    </details>
+
+  </div><!-- /app-main-wrapper -->
 
   <!-- SAĞ REKLAM SIDEBAR -->
   <div class="ad-sidebar" id="adSidebarRight">
     <div class="ad-box ad-box-tall">
       <span class="ad-label">Reklam</span>
-      <!-- Google AdSense kodu buraya -->
-      <!-- <ins class="adsbygoogle" style="display:inline-block;width:160px;height:400px"
+      <ins class="adsbygoogle"
+           style="display:inline-block;width:160px;height:400px"
            data-ad-client="{{ adsense_client }}"
-           data-ad-slot="{{ adsense_slot_right }}"></ins> -->
-      <span style="font-size:1.5rem">📢</span>
-      <span>160×400<br>Reklam Alanı</span>
+           data-ad-slot="{{ adsense_slot_right }}"></ins>
+      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
     </div>
     <div class="ad-box ad-box-short">
       <span class="ad-label">Reklam</span>
-      <span style="font-size:1.5rem">📣</span>
-      <span>160×200<br>Reklam Alanı</span>
+      <ins class="adsbygoogle"
+           style="display:inline-block;width:160px;height:200px"
+           data-ad-client="{{ adsense_client }}"
+           data-ad-slot="{{ adsense_slot_right }}"></ins>
+      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
     </div>
   </div>
 
@@ -156,13 +191,14 @@
     <p>Kısa bir reklam izleyerek <strong>+{{ ad_reward }} PDF</strong> işleme hakkı kazanın.</p>
 
     <div class="ad-placeholder">
-      <!-- Gerçek rewarded ad buraya gelecek -->
-      <!-- Örn: Google AdSense Rewarded veya başka bir ağ -->
+      <ins class="adsbygoogle"
+           style="display:block"
+           data-ad-client="{{ adsense_client }}"
+           data-ad-slot="{{ adsense_slot_left }}"
+           data-ad-format="auto"
+           data-full-width-responsive="true"></ins>
+      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
       <div class="ad-timer" id="adTimerDisplay">5</div>
-      <span>Reklam yükleniyor...</span>
-      <span style="font-size:0.78rem; color:#CBD5E1;">
-        (AdSense onayı sonrası gerçek reklam burada gösterilecek)
-      </span>
     </div>
 
     <button class="btn-claim" id="btnClaimReward" disabled onclick="claimReward()">
@@ -173,12 +209,53 @@
   </div>
 </div>
 
+<!-- ─── GİZLİLİK / POLİTİKA MODAL ─── -->
+<div class="ad-modal-overlay" id="policyModalOverlay">
+  <div class="ad-modal" style="text-align: left; max-width: 500px;">
+    <h3 id="policyModalTitle" style="color: var(--tse-red);">Gizlilik Politikası</h3>
+    <hr style="margin: 10px 0; border: none; border-top: 1px solid #E2E8F0;">
+    <div id="policyModalBody" style="max-height: 300px; overflow-y: auto; font-size: 0.85rem; color: #475569; line-height: 1.5;">
+      <!-- JavaScript ile doldurulacak -->
+    </div>
+    <div style="text-align: right; margin-top: 15px;">
+      <button class="tse-btn" onclick="closePolicyModal()">Kapat</button>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
 <script>
-  // ─── Sunucudan gelen başlangıç değerleri ───
   let serverRemaining = {{ remaining }};
   const adRewardCount = {{ ad_reward }};
+
+  const policies = {
+    privacy: {
+      title: "🔒 Gizlilik ve KVKK Politikası",
+      content: "<p>Fatura Aktarım Otomasyonu, kullanıcılarımızın kişisel ve kurumsal veri gizliliğine yüksek önem verir. Yüklediğiniz başvuru belgeleri (PDF) ve Excel dosyaları sadece fatura dönüştürme işlemi esnasında kullanılır. İşlem tamamlandığı anda sunucudan otomatik ve kalıcı olarak silinir.</p><br><p>Sitemiz Google AdSense reklam hizmetlerini kullanmaktadır. Çerezler (cookies) kullanıcı deneyimini iyileştirmek amacıyla kullanılabilir.</p>"
+    },
+    terms: {
+      title: "📜 Kullanım Şartları",
+      content: "<p>Bu web uygulaması TSE başvuru evraklarının kolay işlenmesi için yardımcı bir otomasyon aracı olarak sunulmaktadır. Kullanıcılar dönüştürülen fatura verilerini kontrol etmekle yükümlüdür.</p><br><p>Günlük ücretsiz kullanım limiti 5 PDF işlemidir. Kullanıcılar reklam izleyerek ek işlem hakkı elde edebilirler.</p>"
+    },
+    contact: {
+      title: "✉️ İletişim",
+      content: "<p>Sistem hakkındaki sorularınız, geri bildirimleriniz ve destek talepleriniz için iletişim bilgileri:</p><br><p><strong>E-posta:</strong> destek@fatura-otomasyonu.com</p><p><strong>Hizmet Yeri:</strong> Türkiye</p>"
+    }
+  };
+
+  function openPolicyModal(type) {
+    const item = policies[type];
+    if (item) {
+      document.getElementById('policyModalTitle').innerText = item.title;
+      document.getElementById('policyModalBody').innerHTML = item.content;
+      document.getElementById('policyModalOverlay').classList.add('active');
+    }
+  }
+
+  function closePolicyModal() {
+    document.getElementById('policyModalOverlay').classList.remove('active');
+  }
 </script>
 {% endblock %}
