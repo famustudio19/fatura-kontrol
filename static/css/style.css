@@ -438,9 +438,9 @@ body {
 
 .ad-placeholder {
   background: #F1F5F9;
-  border: 2px dashed #CBD5E1;
+  border: 1px dashed #CBD5E1;
   border-radius: 10px;
-  height: 200px;
+  min-height: 260px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -449,12 +449,16 @@ body {
   color: #94A3B8;
   font-size: 0.9rem;
   margin-bottom: 20px;
+  position: relative;
+  overflow: hidden;
+  padding: 6px 0;
 }
 
 .ad-timer {
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 800;
   color: var(--tse-red);
+  margin-top: 4px;
 }
 
 .btn-claim {
