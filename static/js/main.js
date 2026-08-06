@@ -152,7 +152,15 @@ document.addEventListener('DOMContentLoaded', () => {
         logTerm('PDF tabloları analiz ediliyor...');
 
         const response = await fetch('/api/process', { method: 'POST', body: formData });
-        const data = await response.json();
+        let data;
+        try {
+          data = await response.json();
+        } catch (jsonErr) {
+          logTerm('HATA: Sunucu yanıtı okunamadı.');
+          alert('Sunucu hatası oluştu. Lütfen sayfayı yenileyip tekrar deneyin.');
+          resetState();
+          return;
+        }
 
         if (response.status === 429 || data.error === 'limit_exceeded') {
           logTerm('HATA: Günlük PDF limitiniz doldu!');

@@ -38,8 +38,14 @@ ADSENSE_CLIENT = 'ca-pub-XXXXXXXXXXXXXXXXX'  # Google AdSense ID'nizi buraya yaz
 ADSENSE_SLOT_LEFT  = 'XXXXXXXXXX'   # Sol reklam alanı
 ADSENSE_SLOT_RIGHT = 'XXXXXXXXXX'   # Sağ reklam alanı
 
-FREE_LIMIT      = 5   # Üretsiz kullanıcı için günlük PDF limiti
-AD_REWARD_COUNT = 3   # Reklam izleme başına kazanılan ek hak
+FREE_LIMIT          = 5   # Ücretsiz kullanıcı için günlük PDF limiti
+FREE_MONTHLY_LIMIT  = 5   # Veritabanı modeli için
+AD_REWARD_COUNT     = 3   # Reklam izleme başına kazanılan ek hak
+
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+with app.app_context():
+    db.create_all()
 
 # ─── VERİTABANI MODELLERİ ────────────────────────────────────────────────────
 class User(UserMixin, db.Model):
