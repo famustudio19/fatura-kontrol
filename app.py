@@ -320,10 +320,9 @@ def process_excel(template_path, out_excel, out_pdf, data):
 
 def stamp_pdf_banner(pdf_path, template_path):
     """
-    PDF'deki 'FATURA DETAYI' satırının üstüne kadar olan header alanını
-    dinamik olarak tespit eder ve kırmızı banner + başlık metnini yüksek
-    çözünürlüklü tek bir PDF image nesnesi olarak enjekte eder.
-    Sayfanın vektör tablo/metin içeriğine dokunulmaz.
+    PDF sayfasının en üstüne (tablo başlamadan önceki header bölgesine)
+    kırmızı TSE banner'ı ve başlık metnini yüksek çözünürlüklü (432 DPI)
+    olarak damgalar. Tablo ve 'FATURA DETAYI' satırına dokunulmaz.
     """
     try:
         import pypdfium2 as pdfium
@@ -340,56 +339,28 @@ def stamp_pdf_banner(pdf_path, template_path):
             return
 
         page = pdf[0]
-        page_width  = page.get_width()   # A4 ~595 pt
-        page_height = page.get_height()  # A4 ~842 pt
+        page_width  = page.get_width()   # A4 ~595.3 pt
+        page_height = page.get_height()  # A4 ~841.9 pt
 
-        # ── "FATURA DETAYI" metninin gerçek TABLO konumunu bul ───────────────
-        # COM PDF'de iki eşleşme olur: oddHeader metni (~83pt) ve tablo başlığı (~122pt)
-        # LibreOffice PDF'de sadece tablo başlığı olur.
-        # → İlk 200 pt içindeki en ALTTAKI eşleşmeyi al (tablo başlığı).
-        header_height_pts = None
-        try:
-            textpage = page.get_textpage()
-            searcher = textpage.search('FATURA DETAYI', match_case=True)
-            best_y = None  # en büyük y_from_top (= en alta yakın)
-            for _ in range(10):  # max 10 eşleşme tara
-                match = searcher.get_next()
-                if not match:
-                    break
-                idx = match[0]
-                box = textpage.get_charbox(idx, loose=False)
-                y_from_top = page_height - box[3]
-                if 10 < y_from_top < 200:  # sayfa gövdesinin üst %25'i
-                    if best_y is None or y_from_top > best_y:
-                        best_y = y_from_top
-            if best_y is not None:
-                # Tablo satırının 2 pt üstüne kadar stamp
-                header_height_pts = max(best_y - 2, 60)
-        except Exception as e:
-            print(f"Text search error (fallback to margin): {e}")
+        # Header alanı yüksekliği: Excel şablonunda üst kenar boşluğu 113.4 pt'dir.
+        # Tablonun ('FATURA DETAYI' satırı) üst çizgisine zarar vermemek için
+        # stamp yüksekliğini tam 106 pt olarak sabitliyoruz.
+        header_height_pts = 106.0
 
-
-        if header_height_pts is None:
-            # Fallback: use pageMargins top (1.5748") if text not found
-            header_height_pts = 1.5748031496063 * 72   # ~113.4 pt
-
-        print(f"Stamp height: {header_height_pts:.1f} pt")
-
-        # ── Kompozit görsel oluştur: banner + başlık metni ──────────────────────
-        SCALE = 6   # 432 DPI → metin çok net çıkar
+        SCALE = 6   # 432 DPI (ultra yüksek netlik)
         img_w = int(page_width  * SCALE)
         img_h = int(header_height_pts * SCALE)
 
         composite = Image.new('RGB', (img_w, img_h), 'white')
 
-        # Kırmızı banner
+        # 1. Kırmızı TSE Banner
         banner_h_px = int(img_w * banner_pil.height / banner_pil.width)
         composite.paste(
             banner_pil.resize((img_w, banner_h_px), Image.Resampling.LANCZOS),
             (0, 0)
         )
 
-        # Başlık metni
+        # 2. Başlık Metinleri
         draw = ImageDraw.Draw(composite)
         font_paths = [
             "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf",
@@ -398,10 +369,11 @@ def stamp_pdf_banner(pdf_path, template_path):
             "C:/Windows/Fonts/arialbd.ttf",
         ]
         font = None
+        font_pt = 10.5
         for fp in font_paths:
             if os.path.exists(fp):
                 try:
-                    font = ImageFont.truetype(fp, size=int(img_w * 0.0135))
+                    font = ImageFont.truetype(fp, size=int(font_pt * SCALE))
                     break
                 except Exception:
                     pass
@@ -414,17 +386,18 @@ def stamp_pdf_banner(pdf_path, template_path):
         h1  = bb1[3] - bb1[1]
         bb2 = draw.textbbox((0, 0), text2, font=font)
         h2  = bb2[3] - bb2[1]
-        gap = int(img_h * 0.03)
+        gap = int(3.5 * SCALE)
+
         text_area_h = img_h - banner_h_px
         y_start = banner_h_px + (text_area_h - h1 - h2 - gap) / 2
         draw.text(((img_w - (bb1[2] - bb1[0])) / 2, y_start), text1, fill="black", font=font)
         draw.text(((img_w - (bb2[2] - bb2[0])) / 2, y_start + h1 + gap), text2, fill="black", font=font)
 
-        # ── PDF image nesnesi olarak enjekte et ─────────────────────────────────
+        # 3. PDF Image olarak sayfaya enjekte et
         pdf_image = pdfium.PdfImage.new(pdf)
         pdf_image.set_bitmap(pdfium.PdfBitmap.from_pil(composite))
 
-        # PDF koord: sol-alt orijin, y yukarı; header alanı sayfanın üstünde
+        # PDF koordinat sistemi: Sol-alt köşe (0,0), y yukarı doğru artar
         pdf_image.set_matrix(pdfium.PdfMatrix(
             page_width, 0,
             0, header_height_pts,
@@ -436,6 +409,7 @@ def stamp_pdf_banner(pdf_path, template_path):
         pdf.close()
     except Exception as e:
         print(f"PDF stamp hatası: {e}")
+
 
 
 
