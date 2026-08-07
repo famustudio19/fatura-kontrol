@@ -320,12 +320,12 @@ def process_excel(template_path, out_excel, out_pdf, data):
 
 def stamp_pdf_banner(pdf_path, template_path):
     """
-    PDF sayfasına rasterize etmeden kırmızı TSE banner görselini enjekte eder.
-    Mevcut vektör metin ve tablolar keskin kalır — bulanıklık olmaz.
+    PDF sayfasına kırmızı TSE banner + başlık metnini yüksek çözünürlüklü tek bir
+    PDF image nesnesi olarak enjekte eder. Sayfanın vektör içeriğine dokunulmaz.
     """
     try:
         import pypdfium2 as pdfium
-        from PIL import Image
+        from PIL import Image, ImageDraw, ImageFont
         import io
 
         with zipfile.ZipFile(template_path, 'r') as z:
@@ -338,33 +338,74 @@ def stamp_pdf_banner(pdf_path, template_path):
             return
 
         page = pdf[0]
-        page_width = page.get_width()   # PDF points (A4 ≈ 595 pt)
-        page_height = page.get_height() # PDF points (A4 ≈ 842 pt)
+        page_width  = page.get_width()   # A4 ~595 pt
+        page_height = page.get_height()  # A4 ~842 pt
 
-        # Banner yüksekliğini sayfa genişliğiyle orantılı hesapla
-        banner_aspect = banner_pil.height / banner_pil.width
-        banner_pts_h = page_width * banner_aspect  # ~48 pt for A4
+        # pageMargins top=1.5748" -> 113.4 pt (üst kenar boşluğu = tam header alanı)
+        top_margin_pts = 1.5748031496063 * 72   # 113.4 pt
 
-        # PdfImage nesnesi oluştur ve bitmap ata (sayfanın vektör içeriğine dokunmaz)
-        pdf_image = pdfium.PdfImage.new(pdf)
-        bitmap = pdfium.PdfBitmap.from_pil(banner_pil)
-        pdf_image.set_bitmap(bitmap)
+        # ── Kompozit görsel oluştur: banner + başlık metni ──────────────────────
+        SCALE = 6   # 6x (432 DPI) → metin çok net çıkar
+        img_w = int(page_width  * SCALE)
+        img_h = int(top_margin_pts * SCALE)
 
-        # PDF koordinat sistemi: sol-alt köşe orijin, y yukarı artar
-        # Banner sayfanın en üstüne: y=(page_height - banner_pts_h) → page_height
-        matrix = pdfium.PdfMatrix(
-            page_width, 0,
-            0, banner_pts_h,
-            0, page_height - banner_pts_h
+        composite = Image.new('RGB', (img_w, img_h), 'white')
+
+        # Kırmızı banner
+        banner_h_px = int(img_w * banner_pil.height / banner_pil.width)
+        composite.paste(
+            banner_pil.resize((img_w, banner_h_px), Image.Resampling.LANCZOS),
+            (0, 0)
         )
-        pdf_image.set_matrix(matrix)
+
+        # Başlık metni
+        draw = ImageDraw.Draw(composite)
+        font_paths = [
+            "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
+            "C:/Windows/Fonts/timesbd.ttf",
+            "C:/Windows/Fonts/arialbd.ttf",
+        ]
+        font = None
+        for fp in font_paths:
+            if os.path.exists(fp):
+                try:
+                    font = ImageFont.truetype(fp, size=int(img_w * 0.0135))
+                    break
+                except Exception:
+                    pass
+        if font is None:
+            font = ImageFont.load_default()
+
+        text1 = "MUAYENE GÖZETİM MERKEZİ BAŞKANLIĞI"
+        text2 = "ÖLÇÜ ALETLERİ FATURA DETAYI FORMU"
+        bb1 = draw.textbbox((0, 0), text1, font=font)
+        h1  = bb1[3] - bb1[1]
+        bb2 = draw.textbbox((0, 0), text2, font=font)
+        h2  = bb2[3] - bb2[1]
+        gap = int(img_h * 0.03)
+        text_area_h = img_h - banner_h_px
+        y_start = banner_h_px + (text_area_h - h1 - h2 - gap) / 2
+        draw.text(((img_w - (bb1[2] - bb1[0])) / 2, y_start), text1, fill="black", font=font)
+        draw.text(((img_w - (bb2[2] - bb2[0])) / 2, y_start + h1 + gap), text2, fill="black", font=font)
+
+        # ── PDF image nesnesi olarak enjekte et ─────────────────────────────────
+        pdf_image = pdfium.PdfImage.new(pdf)
+        pdf_image.set_bitmap(pdfium.PdfBitmap.from_pil(composite))
+
+        # PDF koord: sol-alt orijin, y yukarı; header alanı sayfanın üstünde
+        pdf_image.set_matrix(pdfium.PdfMatrix(
+            page_width, 0,
+            0, top_margin_pts,
+            0, page_height - top_margin_pts
+        ))
         page.insert_obj(pdf_image)
         page.gen_content()
-
         pdf.save(pdf_path)
         pdf.close()
     except Exception as e:
         print(f"PDF stamp hatası: {e}")
+
 
 
 
