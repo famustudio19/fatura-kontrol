@@ -320,8 +320,10 @@ def process_excel(template_path, out_excel, out_pdf, data):
 
 def stamp_pdf_banner(pdf_path, template_path):
     """
-    PDF sayfasına kırmızı TSE banner + başlık metnini yüksek çözünürlüklü tek bir
-    PDF image nesnesi olarak enjekte eder. Sayfanın vektör içeriğine dokunulmaz.
+    PDF'deki 'FATURA DETAYI' satırının üstüne kadar olan header alanını
+    dinamik olarak tespit eder ve kırmızı banner + başlık metnini yüksek
+    çözünürlüklü tek bir PDF image nesnesi olarak enjekte eder.
+    Sayfanın vektör tablo/metin içeriğine dokunulmaz.
     """
     try:
         import pypdfium2 as pdfium
@@ -341,13 +343,42 @@ def stamp_pdf_banner(pdf_path, template_path):
         page_width  = page.get_width()   # A4 ~595 pt
         page_height = page.get_height()  # A4 ~842 pt
 
-        # pageMargins top=1.5748" -> 113.4 pt (üst kenar boşluğu = tam header alanı)
-        top_margin_pts = 1.5748031496063 * 72   # 113.4 pt
+        # ── "FATURA DETAYI" metninin gerçek TABLO konumunu bul ───────────────
+        # COM PDF'de iki eşleşme olur: oddHeader metni (~83pt) ve tablo başlığı (~122pt)
+        # LibreOffice PDF'de sadece tablo başlığı olur.
+        # → İlk 200 pt içindeki en ALTTAKI eşleşmeyi al (tablo başlığı).
+        header_height_pts = None
+        try:
+            textpage = page.get_textpage()
+            searcher = textpage.search('FATURA DETAYI', match_case=True)
+            best_y = None  # en büyük y_from_top (= en alta yakın)
+            for _ in range(10):  # max 10 eşleşme tara
+                match = searcher.get_next()
+                if not match:
+                    break
+                idx = match[0]
+                box = textpage.get_charbox(idx, loose=False)
+                y_from_top = page_height - box[3]
+                if 10 < y_from_top < 200:  # sayfa gövdesinin üst %25'i
+                    if best_y is None or y_from_top > best_y:
+                        best_y = y_from_top
+            if best_y is not None:
+                # Tablo satırının 2 pt üstüne kadar stamp
+                header_height_pts = max(best_y - 2, 60)
+        except Exception as e:
+            print(f"Text search error (fallback to margin): {e}")
+
+
+        if header_height_pts is None:
+            # Fallback: use pageMargins top (1.5748") if text not found
+            header_height_pts = 1.5748031496063 * 72   # ~113.4 pt
+
+        print(f"Stamp height: {header_height_pts:.1f} pt")
 
         # ── Kompozit görsel oluştur: banner + başlık metni ──────────────────────
-        SCALE = 6   # 6x (432 DPI) → metin çok net çıkar
+        SCALE = 6   # 432 DPI → metin çok net çıkar
         img_w = int(page_width  * SCALE)
-        img_h = int(top_margin_pts * SCALE)
+        img_h = int(header_height_pts * SCALE)
 
         composite = Image.new('RGB', (img_w, img_h), 'white')
 
@@ -396,8 +427,8 @@ def stamp_pdf_banner(pdf_path, template_path):
         # PDF koord: sol-alt orijin, y yukarı; header alanı sayfanın üstünde
         pdf_image.set_matrix(pdfium.PdfMatrix(
             page_width, 0,
-            0, top_margin_pts,
-            0, page_height - top_margin_pts
+            0, header_height_pts,
+            0, page_height - header_height_pts
         ))
         page.insert_obj(pdf_image)
         page.gen_content()
@@ -405,6 +436,8 @@ def stamp_pdf_banner(pdf_path, template_path):
         pdf.close()
     except Exception as e:
         print(f"PDF stamp hatası: {e}")
+
+
 
 
 
