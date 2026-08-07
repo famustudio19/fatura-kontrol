@@ -166,98 +166,90 @@ def extract_data_from_pdf(pdf_path):
 
     return data
 
-import openpyxl
-import openpyxl.reader.excel
-import openpyxl.reader.drawings
-from io import BytesIO
-from openpyxl.drawing.image import Image, PILImage
-from openpyxl.xml.functions import fromstring
-from openpyxl.xml.constants import IMAGE_NS
-from openpyxl.packaging.relationship import get_rel, get_rels_path, get_dependents
-from openpyxl.drawing.spreadsheet_drawing import SpreadsheetDrawing
-from openpyxl.chart.chartspace import ChartSpace
-from openpyxl.chart.reader import read_chart
-
-# openpyxl varsayılan olarak şablondaki WMF/EMF görselleri (kırmızı TSE başlığı gibi) sildiği için
-# openpyxl okuma fonksiyonunu yamalayarak WMF/EMF resimleri otomatik PNG'ye çevirip koruyoruz.
-def _patched_find_images(archive, path):
-    src = archive.read(path)
-    tree = fromstring(src)
-    try:
-        drawing = SpreadsheetDrawing.from_tree(tree)
-    except TypeError:
-        return [], []
-
-    rels_path = get_rels_path(path)
-    deps = []
-    if rels_path in archive.namelist():
-        deps = get_dependents(archive, rels_path)
-
-    charts = []
-    for rel in drawing._chart_rels:
-        try:
-            cs = get_rel(archive, deps, rel.id, ChartSpace)
-        except TypeError:
-            continue
-        chart = read_chart(cs)
-        chart.anchor = rel.anchor
-        charts.append(chart)
-
-    images = []
-    if not PILImage:
-        return charts, images
-
-    for rel in drawing._blip_rels:
-        dep = deps.get(rel.embed)
-        if dep and dep.Type == IMAGE_NS:
-            try:
-                raw_data = archive.read(dep.target)
-                pil_img = PILImage.open(BytesIO(raw_data))
-                if pil_img.format and pil_img.format.upper() in ('WMF', 'EMF'):
-                    png_buf = BytesIO()
-                    pil_img.convert('RGBA').save(png_buf, format='PNG')
-                    png_buf.seek(0)
-                    image = Image(png_buf)
-                else:
-                    image = Image(BytesIO(raw_data))
-                image.anchor = rel.anchor
-                images.append(image)
-            except Exception:
-                continue
-    return charts, images
-
-openpyxl.reader.drawings.find_images = _patched_find_images
-openpyxl.reader.excel.find_images = _patched_find_images
+import zipfile
+import html
 import subprocess
+
+def set_cell_xml(sheet_xml, cell_ref, value, is_number=False, style=None):
+    if value is None:
+        value = ""
+    val_str = str(value)
+    escaped = html.escape(val_str)
+    
+    pattern = rf'<c\s+r="{cell_ref}"([^>]*?)(?:/>|>(.*?)</c>)'
+    match = re.search(pattern, sheet_xml)
+    if match:
+        attrs = match.group(1)
+        s_match = re.search(r's="(\d+)"', attrs)
+        s_attr = f's="{s_match.group(1)}"' if s_match else (f's="{style}"' if style else '')
+        
+        if is_number and val_str != "":
+            new_cell = f'<c r="{cell_ref}" {s_attr}><v>{escaped}</v></c>'
+        elif val_str == "":
+            new_cell = f'<c r="{cell_ref}" {s_attr}/>'
+        else:
+            new_cell = f'<c r="{cell_ref}" {s_attr} t="inlineStr"><is><t>{escaped}</t></is></c>'
+            
+        sheet_xml = sheet_xml[:match.start()] + new_cell + sheet_xml[match.end():]
+    else:
+        row_num = ''.join(filter(str.isdigit, cell_ref))
+        row_pattern = rf'(<row\s+r="{row_num}"[^>]*>)'
+        s_attr = f's="{style}"' if style else ''
+        if is_number and val_str != "":
+            new_cell = f'<c r="{cell_ref}" {s_attr}><v>{escaped}</v></c>'
+        else:
+            new_cell = f'<c r="{cell_ref}" {s_attr} t="inlineStr"><is><t>{escaped}</t></is></c>'
+            
+        sheet_xml = re.sub(row_pattern, rf'\1{new_cell}', sheet_xml, count=1)
+        
+    return sheet_xml
+
+def fill_template_lossless(template_path, output_path, data):
+    """Excel şablonundaki kırmızı başlık, logo, VML çizimleri ve formülleri %100 koruyarak hücreleri günceller."""
+    with zipfile.ZipFile(template_path, 'r') as zin:
+        sheet_xml = zin.read('xl/worksheets/sheet1.xml').decode('utf-8')
+        
+        # _x000a_ kaçış karakterlerini temizle
+        sheet_xml = sheet_xml.replace('_x000a_', '\n')
+        
+        # Başlık ve firma bilgileri
+        sheet_xml = set_cell_xml(sheet_xml, 'C2', data.get('evrak_no', ''))
+        if data.get('basvuru_yili'):
+            sheet_xml = set_cell_xml(sheet_xml, 'C3', data.get('basvuru_yili'), is_number=True)
+        sheet_xml = set_cell_xml(sheet_xml, 'C4', data.get('firma_adi', ''))
+        if 'tamir_ayar_firmasi' in data:
+            sheet_xml = set_cell_xml(sheet_xml, 'C5', data.get('tamir_ayar_firmasi', ''))
+        sheet_xml = set_cell_xml(sheet_xml, 'C6', data.get('fatura_adresi', ''))
+        sheet_xml = set_cell_xml(sheet_xml, 'C7', data.get('telefon', ''))
+        sheet_xml = set_cell_xml(sheet_xml, 'C8', data.get('eposta', ''))
+        sheet_xml = set_cell_xml(sheet_xml, 'C9', f"{data.get('vergi_dairesi','')} - {data.get('vergi_no','')}")
+        
+        # Kalemler (Ölçü Aletleri)
+        items = data.get('items', [])
+        for i in range(8):
+            row = 12 + i
+            if i < len(items):
+                item = items[i]
+                sheet_xml = set_cell_xml(sheet_xml, f'B{row}', item.get('adi', ''))
+                sheet_xml = set_cell_xml(sheet_xml, f'C{row}', item.get('bilgisi', ''))
+                sheet_xml = set_cell_xml(sheet_xml, f'E{row}', item.get('adet', 1), is_number=True)
+            else:
+                # Boş kalan satırları temizle
+                sheet_xml = set_cell_xml(sheet_xml, f'B{row}', '')
+                sheet_xml = set_cell_xml(sheet_xml, f'C{row}', '')
+                sheet_xml = set_cell_xml(sheet_xml, f'E{row}', '')
+            
+        with zipfile.ZipFile(output_path, 'w', compression=zipfile.ZIP_DEFLATED) as zout:
+            for item in zin.infolist():
+                if item.filename == 'xl/worksheets/sheet1.xml':
+                    zout.writestr(item.filename, sheet_xml.encode('utf-8'))
+                else:
+                    zout.writestr(item.filename, zin.read(item.filename))
 
 # ─── EXCEL VE PDF YAZMA (ÇAPRAZ PLATFORM: WINDOWS & LINUX) ────────────────────
 def process_excel(template_path, out_excel, out_pdf, data):
-    # 1. openpyxl ile Excel şablonunu doldur (Windows & Linux uyumlu)
-    wb = openpyxl.load_workbook(template_path)
-    sh = wb.active
-
-    # Metinlerdeki _x000a_ kaçış karakterlerini temizle
-    for row_cells in sh.iter_rows():
-        for cell in row_cells:
-            if isinstance(cell.value, str) and '_x000a_' in cell.value:
-                cell.value = cell.value.replace('_x000a_', '\n')
-
-    sh["C2"] = data.get("evrak_no", "")
-    if data.get("basvuru_yili"):
-        sh["C3"] = data.get("basvuru_yili")
-    sh["C4"] = data.get("firma_adi", "")
-    sh["C6"] = data.get("fatura_adresi", "")
-    sh["C7"] = data.get("telefon", "")
-    sh["C8"] = data.get("eposta", "")
-    sh["C9"] = f"{data.get('vergi_dairesi','')} - {data.get('vergi_no','')}"
-
-    for i, item in enumerate(data['items']):
-        row = 12 + i
-        sh[f"B{row}"] = item['adi']
-        sh[f"C{row}"] = item['bilgisi']
-        sh[f"E{row}"] = item['adet']
-
-    wb.save(os.path.abspath(out_excel))
+    # 1. Kayıpsız XML şablon doldurma ile Excel oluştur (TSE Kırmızı Başlığı ve Logolar %100 korunur)
+    fill_template_lossless(template_path, out_excel, data)
 
     # 2. PDF Dönüştürme (Windows için Excel COM, Linux için LibreOffice)
     pdf_converted = False
