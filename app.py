@@ -357,7 +357,7 @@ def stamp_pdf_banner(pdf_path, template_path):
         for fp in font_paths:
             if os.path.exists(fp):
                 try:
-                    font = ImageFont.truetype(fp, size=int(page_img.width * 0.022))
+                    font = ImageFont.truetype(fp, size=int(page_img.width * 0.0125))
                     break
                 except Exception:
                     pass
@@ -367,27 +367,31 @@ def stamp_pdf_banner(pdf_path, template_path):
         text1 = "MUAYENE GÖZETİM MERKEZİ BAŞKANLIĞI"
         text2 = "ÖLÇÜ ALETLERİ FATURA DETAYI FORMU"
         
-        # Metin alanının arka planını temizle
-        text_bg_height = int(page_img.height * 0.075)
-        draw.rectangle([0, banner_h, page_img.width, banner_h + text_bg_height], fill="white")
+        # Metin alanının arka planını temizle (Tablonun üst sınırına kadar)
+        table_top_y = int(page_img.height * 0.128)
+        draw.rectangle([0, banner_h, page_img.width, table_top_y - int(page_img.height * 0.005)], fill="white")
         
-        # Ortalayarak yaz
+        # Metinleri ortalayarak yaz
         bbox1 = draw.textbbox((0, 0), text1, font=font)
+        h1 = bbox1[3] - bbox1[1]
         x1 = (page_img.width - (bbox1[2] - bbox1[0])) / 2
         
         bbox2 = draw.textbbox((0, 0), text2, font=font)
+        h2 = bbox2[3] - bbox2[1]
         x2 = (page_img.width - (bbox2[2] - bbox2[0])) / 2
         
-        y_start = banner_h + int(page_img.height * 0.012)
-        line_gap = int(page_img.height * 0.008)
+        line_gap = int(page_img.height * 0.005)
+        available_space = (table_top_y - banner_h)
+        y_start = banner_h + (available_space - (h1 + h2 + line_gap)) / 2
         
         draw.text((x1, y_start), text1, fill="black", font=font)
-        draw.text((x2, y_start + (bbox1[3] - bbox1[1]) + line_gap), text2, fill="black", font=font)
+        draw.text((x2, y_start + h1 + line_gap), text2, fill="black", font=font)
         
         page_img.save(pdf_path, 'PDF', resolution=300.0)
         pdf.close()
     except Exception as e:
         print(f"PDF stamp hatası: {e}")
+
 
 
 
