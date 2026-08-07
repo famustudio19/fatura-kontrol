@@ -319,75 +319,49 @@ def process_excel(template_path, out_excel, out_pdf, data):
         stamp_pdf_banner(out_pdf, template_path)
 
 def stamp_pdf_banner(pdf_path, template_path):
-    """LibreOffice veya COM ile oluşturulan PDF'in en üstüne kırmızı TSE logosunu ve başlık metnini damgalar."""
+    """
+    PDF sayfasına rasterize etmeden kırmızı TSE banner görselini enjekte eder.
+    Mevcut vektör metin ve tablolar keskin kalır — bulanıklık olmaz.
+    """
     try:
         import pypdfium2 as pdfium
-        from PIL import Image, ImageDraw, ImageFont
+        from PIL import Image
         import io
 
         with zipfile.ZipFile(template_path, 'r') as z:
             banner_bytes = z.read('xl/media/image2.png')
-            
-        banner = Image.open(io.BytesIO(banner_bytes))
+
+        banner_pil = Image.open(io.BytesIO(banner_bytes)).convert('RGB')
+
         pdf = pdfium.PdfDocument(pdf_path)
         if len(pdf) == 0:
             return
-            
+
         page = pdf[0]
-        # 300 DPI yüksek kaliteli render
-        page_img = page.render(scale=4).to_pil()
-        
-        banner_w = page_img.width
-        banner_h = int(page_img.width * banner.height / banner.width)
-        banner_resized = banner.resize((banner_w, banner_h), Image.Resampling.LANCZOS)
-        
-        # En üste kırmızı TSE bandını yapıştır
-        page_img.paste(banner_resized, (0, 0))
-        
-        draw = ImageDraw.Draw(page_img)
-        
-        # Font seçimi (Linux & Windows uyumlu)
-        font_paths = [
-            "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
-            "C:/Windows/Fonts/timesbd.ttf",
-            "C:/Windows/Fonts/arialbd.ttf"
-        ]
-        font = None
-        for fp in font_paths:
-            if os.path.exists(fp):
-                try:
-                    font = ImageFont.truetype(fp, size=int(page_img.width * 0.0125))
-                    break
-                except Exception:
-                    pass
-        if font is None:
-            font = ImageFont.load_default()
-            
-        text1 = "MUAYENE GÖZETİM MERKEZİ BAŞKANLIĞI"
-        text2 = "ÖLÇÜ ALETLERİ FATURA DETAYI FORMU"
-        
-        # Metin alanının arka planını temizle (Tablonun üst sınırına kadar)
-        table_top_y = int(page_img.height * 0.128)
-        draw.rectangle([0, banner_h, page_img.width, table_top_y - int(page_img.height * 0.005)], fill="white")
-        
-        # Metinleri ortalayarak yaz
-        bbox1 = draw.textbbox((0, 0), text1, font=font)
-        h1 = bbox1[3] - bbox1[1]
-        x1 = (page_img.width - (bbox1[2] - bbox1[0])) / 2
-        
-        bbox2 = draw.textbbox((0, 0), text2, font=font)
-        h2 = bbox2[3] - bbox2[1]
-        x2 = (page_img.width - (bbox2[2] - bbox2[0])) / 2
-        
-        line_gap = int(page_img.height * 0.005)
-        available_space = (table_top_y - banner_h)
-        y_start = banner_h + (available_space - (h1 + h2 + line_gap)) / 2
-        
-        draw.text((x1, y_start), text1, fill="black", font=font)
-        draw.text((x2, y_start + h1 + line_gap), text2, fill="black", font=font)
-        
-        page_img.save(pdf_path, 'PDF', resolution=300.0)
+        page_width = page.get_width()   # PDF points (A4 ≈ 595 pt)
+        page_height = page.get_height() # PDF points (A4 ≈ 842 pt)
+
+        # Banner yüksekliğini sayfa genişliğiyle orantılı hesapla
+        banner_aspect = banner_pil.height / banner_pil.width
+        banner_pts_h = page_width * banner_aspect  # ~48 pt for A4
+
+        # PdfImage nesnesi oluştur ve bitmap ata (sayfanın vektör içeriğine dokunmaz)
+        pdf_image = pdfium.PdfImage.new(pdf)
+        bitmap = pdfium.PdfBitmap.from_pil(banner_pil)
+        pdf_image.set_bitmap(bitmap)
+
+        # PDF koordinat sistemi: sol-alt köşe orijin, y yukarı artar
+        # Banner sayfanın en üstüne: y=(page_height - banner_pts_h) → page_height
+        matrix = pdfium.PdfMatrix(
+            page_width, 0,
+            0, banner_pts_h,
+            0, page_height - banner_pts_h
+        )
+        pdf_image.set_matrix(matrix)
+        page.insert_obj(pdf_image)
+        page.gen_content()
+
+        pdf.save(pdf_path)
         pdf.close()
     except Exception as e:
         print(f"PDF stamp hatası: {e}")
