@@ -319,10 +319,10 @@ def process_excel(template_path, out_excel, out_pdf, data):
         stamp_pdf_banner(out_pdf, template_path)
 
 def stamp_pdf_banner(pdf_path, template_path):
-    """LibreOffice veya COM ile oluşturulan PDF'in en üstüne kırmızı TSE logosunu damgalar."""
+    """LibreOffice veya COM ile oluşturulan PDF'in en üstüne kırmızı TSE logosunu ve başlık metnini damgalar."""
     try:
         import pypdfium2 as pdfium
-        from PIL import Image
+        from PIL import Image, ImageDraw, ImageFont
         import io
 
         with zipfile.ZipFile(template_path, 'r') as z:
@@ -334,6 +334,7 @@ def stamp_pdf_banner(pdf_path, template_path):
             return
             
         page = pdf[0]
+        # 300 DPI yüksek kaliteli render
         page_img = page.render(scale=4).to_pil()
         
         banner_w = page_img.width
@@ -342,10 +343,52 @@ def stamp_pdf_banner(pdf_path, template_path):
         
         # En üste kırmızı TSE bandını yapıştır
         page_img.paste(banner_resized, (0, 0))
+        
+        draw = ImageDraw.Draw(page_img)
+        
+        # Font seçimi (Linux & Windows uyumlu)
+        font_paths = [
+            "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
+            "C:/Windows/Fonts/timesbd.ttf",
+            "C:/Windows/Fonts/arialbd.ttf"
+        ]
+        font = None
+        for fp in font_paths:
+            if os.path.exists(fp):
+                try:
+                    font = ImageFont.truetype(fp, size=int(page_img.width * 0.022))
+                    break
+                except Exception:
+                    pass
+        if font is None:
+            font = ImageFont.load_default()
+            
+        text1 = "MUAYENE GÖZETİM MERKEZİ BAŞKANLIĞI"
+        text2 = "ÖLÇÜ ALETLERİ FATURA DETAYI FORMU"
+        
+        # Metin alanının arka planını temizle
+        text_bg_height = int(page_img.height * 0.075)
+        draw.rectangle([0, banner_h, page_img.width, banner_h + text_bg_height], fill="white")
+        
+        # Ortalayarak yaz
+        bbox1 = draw.textbbox((0, 0), text1, font=font)
+        x1 = (page_img.width - (bbox1[2] - bbox1[0])) / 2
+        
+        bbox2 = draw.textbbox((0, 0), text2, font=font)
+        x2 = (page_img.width - (bbox2[2] - bbox2[0])) / 2
+        
+        y_start = banner_h + int(page_img.height * 0.012)
+        line_gap = int(page_img.height * 0.008)
+        
+        draw.text((x1, y_start), text1, fill="black", font=font)
+        draw.text((x2, y_start + (bbox1[3] - bbox1[1]) + line_gap), text2, fill="black", font=font)
+        
         page_img.save(pdf_path, 'PDF', resolution=300.0)
         pdf.close()
     except Exception as e:
         print(f"PDF stamp hatası: {e}")
+
 
 
 
