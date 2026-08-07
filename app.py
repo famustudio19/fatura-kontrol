@@ -38,8 +38,8 @@ ADSENSE_CLIENT = 'ca-pub-6335356250153811'  # Google AdSense Yayıncı ID'niz
 ADSENSE_SLOT_LEFT  = 'XXXXXXXXXX'   # Sol reklam alanı
 ADSENSE_SLOT_RIGHT = 'XXXXXXXXXX'   # Sağ reklam alanı
 
-FREE_LIMIT          = 5   # Ücretsiz kullanıcı için günlük PDF limiti
-FREE_MONTHLY_LIMIT  = 5   # Veritabanı modeli için
+FREE_LIMIT          = 3   # Ücretsiz kullanıcı için günlük PDF limiti
+FREE_MONTHLY_LIMIT  = 3   # Veritabanı modeli için
 AD_REWARD_COUNT     = 3   # Reklam izleme başına kazanılan ek hak
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
