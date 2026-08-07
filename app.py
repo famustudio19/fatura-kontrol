@@ -167,6 +167,67 @@ def extract_data_from_pdf(pdf_path):
     return data
 
 import openpyxl
+import openpyxl.reader.excel
+import openpyxl.reader.drawings
+from io import BytesIO
+from openpyxl.drawing.image import Image, PILImage
+from openpyxl.xml.functions import fromstring
+from openpyxl.xml.constants import IMAGE_NS
+from openpyxl.packaging.relationship import get_rel, get_rels_path, get_dependents
+from openpyxl.drawing.spreadsheet_drawing import SpreadsheetDrawing
+from openpyxl.chart.chartspace import ChartSpace
+from openpyxl.chart.reader import read_chart
+
+# openpyxl varsayılan olarak şablondaki WMF/EMF görselleri (kırmızı TSE başlığı gibi) sildiği için
+# openpyxl okuma fonksiyonunu yamalayarak WMF/EMF resimleri otomatik PNG'ye çevirip koruyoruz.
+def _patched_find_images(archive, path):
+    src = archive.read(path)
+    tree = fromstring(src)
+    try:
+        drawing = SpreadsheetDrawing.from_tree(tree)
+    except TypeError:
+        return [], []
+
+    rels_path = get_rels_path(path)
+    deps = []
+    if rels_path in archive.namelist():
+        deps = get_dependents(archive, rels_path)
+
+    charts = []
+    for rel in drawing._chart_rels:
+        try:
+            cs = get_rel(archive, deps, rel.id, ChartSpace)
+        except TypeError:
+            continue
+        chart = read_chart(cs)
+        chart.anchor = rel.anchor
+        charts.append(chart)
+
+    images = []
+    if not PILImage:
+        return charts, images
+
+    for rel in drawing._blip_rels:
+        dep = deps.get(rel.embed)
+        if dep and dep.Type == IMAGE_NS:
+            try:
+                raw_data = archive.read(dep.target)
+                pil_img = PILImage.open(BytesIO(raw_data))
+                if pil_img.format and pil_img.format.upper() in ('WMF', 'EMF'):
+                    png_buf = BytesIO()
+                    pil_img.convert('RGBA').save(png_buf, format='PNG')
+                    png_buf.seek(0)
+                    image = Image(png_buf)
+                else:
+                    image = Image(BytesIO(raw_data))
+                image.anchor = rel.anchor
+                images.append(image)
+            except Exception:
+                continue
+    return charts, images
+
+openpyxl.reader.drawings.find_images = _patched_find_images
+openpyxl.reader.excel.find_images = _patched_find_images
 import subprocess
 
 # ─── EXCEL VE PDF YAZMA (ÇAPRAZ PLATFORM: WINDOWS & LINUX) ────────────────────
@@ -174,6 +235,12 @@ def process_excel(template_path, out_excel, out_pdf, data):
     # 1. openpyxl ile Excel şablonunu doldur (Windows & Linux uyumlu)
     wb = openpyxl.load_workbook(template_path)
     sh = wb.active
+
+    # Metinlerdeki _x000a_ kaçış karakterlerini temizle
+    for row_cells in sh.iter_rows():
+        for cell in row_cells:
+            if isinstance(cell.value, str) and '_x000a_' in cell.value:
+                cell.value = cell.value.replace('_x000a_', '\n')
 
     sh["C2"] = data.get("evrak_no", "")
     if data.get("basvuru_yili"):
