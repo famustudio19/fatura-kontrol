@@ -5,3 +5,6 @@ werkzeug
 pdfplumber
 openpyxl
 gunicorn
+pypdfium2
+pillow
+

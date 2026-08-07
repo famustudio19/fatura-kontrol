@@ -314,6 +314,40 @@ def process_excel(template_path, out_excel, out_pdf, data):
                 f"Detay: {last_err}"
             )
 
+    # 3. PDF'in en üstüne kırmızı TSE başlığını damgala (LibreOffice VML desteklemediği için bu adım PDF'te başlığı %100 garanti eder)
+    if pdf_converted and os.path.exists(out_pdf):
+        stamp_pdf_banner(out_pdf, template_path)
+
+def stamp_pdf_banner(pdf_path, template_path):
+    """LibreOffice veya COM ile oluşturulan PDF'in en üstüne kırmızı TSE logosunu damgalar."""
+    try:
+        import pypdfium2 as pdfium
+        from PIL import Image
+        import io
+
+        with zipfile.ZipFile(template_path, 'r') as z:
+            banner_bytes = z.read('xl/media/image2.png')
+            
+        banner = Image.open(io.BytesIO(banner_bytes))
+        pdf = pdfium.PdfDocument(pdf_path)
+        if len(pdf) == 0:
+            return
+            
+        page = pdf[0]
+        page_img = page.render(scale=4).to_pil()
+        
+        banner_w = page_img.width
+        banner_h = int(page_img.width * banner.height / banner.width)
+        banner_resized = banner.resize((banner_w, banner_h), Image.Resampling.LANCZOS)
+        
+        # En üste kırmızı TSE bandını yapıştır
+        page_img.paste(banner_resized, (0, 0))
+        page_img.save(pdf_path, 'PDF', resolution=300.0)
+        pdf.close()
+    except Exception as e:
+        print(f"PDF stamp hatası: {e}")
+
+
 
 # ─── IP BAZLI KOTA TAKIBI (veritabanı gerektirmiyor) ──────────────────────────
 ip_quota = {}   # { ip: {'used': int, 'bonus': int, 'date': str} }
