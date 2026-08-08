@@ -204,18 +204,92 @@ def set_cell_xml(sheet_xml, cell_ref, value, is_number=False, style=None):
         
     return sheet_xml
 
+def set_formula_cell_xml(sheet_xml, cell_ref, formula, value, style=None):
+    """Formula ve hesaplanmış değeri XML'e kayıpsız yazar."""
+    pattern = rf'<c\s+r="{cell_ref}"([^>]*?)(?:/>|>(.*?)</c>)'
+    match = re.search(pattern, sheet_xml, re.DOTALL)
+    
+    val_str = "" if value is None or value == "" else str(value)
+    if isinstance(value, float) and value.is_integer():
+        val_str = str(int(value))
+    v_tag = f"<v>{html.escape(val_str)}</v>" if val_str != "" else ""
+    f_tag = f"<f>{html.escape(formula)}</f>" if formula else ""
+    
+    if match:
+        attrs = match.group(1)
+        s_match = re.search(r's="(\d+)"', attrs)
+        s_attr = f's="{s_match.group(1)}"' if s_match else (f's="{style}"' if style else '')
+        
+        if not f_tag and not v_tag:
+            new_cell = f'<c r="{cell_ref}" {s_attr}/>'
+        else:
+            new_cell = f'<c r="{cell_ref}" {s_attr}>{f_tag}{v_tag}</c>'
+        sheet_xml = sheet_xml[:match.start()] + new_cell + sheet_xml[match.end():]
+    return sheet_xml
+
+def load_price_lookup(template_path):
+    """Excel şablonundaki Veriler sayfasından tüm fiyat tablosunu dinamik okur."""
+    lookup = {}
+    try:
+        with zipfile.ZipFile(template_path, 'r') as z:
+            if 'xl/worksheets/sheet2.xml' not in z.namelist():
+                return lookup
+            sheet2 = z.read('xl/worksheets/sheet2.xml').decode('utf-8')
+            ss = z.read('xl/sharedStrings.xml').decode('utf-8') if 'xl/sharedStrings.xml' in z.namelist() else ""
+            strings = re.findall(r'<si>.*?</si>', ss, re.DOTALL)
+            
+            def get_str(idx):
+                if idx < len(strings):
+                    m = re.search(r'<t[^>]*>(.*?)</t>', strings[idx])
+                    return m.group(1) if m else ''
+                return ''
+
+            rows = re.findall(r'<row r="(\d+)"[^>]*>(.*?)</row>', sheet2, re.DOTALL)
+            for r_num, r_content in rows:
+                cells = re.findall(r'<c r="([A-Z]+\d+)"([^>]*)(?:/>|>(.*?)</c>)', r_content, re.DOTALL)
+                c_val = d_val = e_val = ""
+                for ref, attrs, val in cells:
+                    v_match = re.search(r'<v>(.*?)</v>', val) if val else None
+                    v = v_match.group(1) if v_match else ''
+                    if 't="s"' in attrs:
+                        try: v = get_str(int(v))
+                        except: pass
+                    col = re.match(r'([A-Z]+)', ref).group(1)
+                    if col == 'C': c_val = v.strip()
+                    elif col == 'D': d_val = v.strip()
+                    elif col == 'E': e_val = v.strip()
+                
+                if c_val:
+                    try:
+                        p25 = float(d_val) if d_val else 0.0
+                        p26 = float(e_val) if e_val else 0.0
+                        if p25 > 0 or p26 > 0:
+                            lookup[c_val] = {2025: p25, 2026: p26}
+                    except ValueError:
+                        pass
+    except Exception as e:
+        print(f"Fiyat tablosu okuma uyarısı: {e}")
+    return lookup
+
 def fill_template_lossless(template_path, output_path, data):
-    """Excel şablonundaki kırmızı başlık, logo, VML çizimleri ve formülleri %100 koruyarak hücreleri günceller."""
+    """Excel şablonundaki kırmızı başlık, logo, formüller ve fiyatları %100 doğrulukla işler."""
+    price_lookup = load_price_lookup(template_path)
+    
     with zipfile.ZipFile(template_path, 'r') as zin:
         sheet_xml = zin.read('xl/worksheets/sheet1.xml').decode('utf-8')
+        wb_xml = zin.read('xl/workbook.xml').decode('utf-8') if 'xl/workbook.xml' in zin.namelist() else ""
         
         # _x000a_ kaçış karakterlerini temizle
         sheet_xml = sheet_xml.replace('_x000a_', '\n')
         
-        # Başlık ve firma bilgileri
+        # 1. Başvuru Yılı
+        yil = data.get('basvuru_yili')
+        try: yil = int(yil) if yil else 2026
+        except: yil = 2026
+        
+        # 2. Başlık ve firma bilgileri
         sheet_xml = set_cell_xml(sheet_xml, 'C2', data.get('evrak_no', ''))
-        if data.get('basvuru_yili'):
-            sheet_xml = set_cell_xml(sheet_xml, 'C3', data.get('basvuru_yili'), is_number=True)
+        sheet_xml = set_cell_xml(sheet_xml, 'C3', yil, is_number=True)
         sheet_xml = set_cell_xml(sheet_xml, 'C4', data.get('firma_adi', ''))
         if 'tamir_ayar_firmasi' in data:
             sheet_xml = set_cell_xml(sheet_xml, 'C5', data.get('tamir_ayar_firmasi', ''))
@@ -224,25 +298,75 @@ def fill_template_lossless(template_path, output_path, data):
         sheet_xml = set_cell_xml(sheet_xml, 'C8', data.get('eposta', ''))
         sheet_xml = set_cell_xml(sheet_xml, 'C9', f"{data.get('vergi_dairesi','')} - {data.get('vergi_no','')}")
         
-        # Kalemler (Ölçü Aletleri)
+        # 3. Kalemler ve Fiyat Hesaplamaları
         items = data.get('items', [])
+        toplam_tutar = 0.0
+        
         for i in range(8):
             row = 12 + i
+            f_formula = f'IF($C$3="","",IFERROR(VLOOKUP(C{row},Veriler!$C$2:$E$53,IF($C$3=Veriler!$A$2,2,3),0),""))'
+            h_formula = f'IF(OR(E{row}="",F{row}=""),"",E{row}*F{row})'
+            
             if i < len(items):
                 item = items[i]
-                sheet_xml = set_cell_xml(sheet_xml, f'B{row}', item.get('adi', ''))
-                sheet_xml = set_cell_xml(sheet_xml, f'C{row}', item.get('bilgisi', ''))
-                sheet_xml = set_cell_xml(sheet_xml, f'E{row}', item.get('adet', 1), is_number=True)
+                adi = item.get('adi', '')
+                bilgisi = item.get('bilgisi', '')
+                adet = item.get('adet', 1)
+                try: adet = int(adet)
+                except: adet = 1
+                
+                # Fiyatı bul
+                birim_fiyat = 0.0
+                if bilgisi in price_lookup:
+                    birim_fiyat = price_lookup[bilgisi].get(yil, price_lookup[bilgisi].get(2026, 0.0))
+                else:
+                    # Kısmi eşleşme dene
+                    for k, v in price_lookup.items():
+                        if k in bilgisi or bilgisi in k:
+                            birim_fiyat = v.get(yil, v.get(2026, 0.0))
+                            break
+                
+                ara_toplam = adet * birim_fiyat
+                toplam_tutar += ara_toplam
+                
+                sheet_xml = set_cell_xml(sheet_xml, f'B{row}', adi)
+                sheet_xml = set_cell_xml(sheet_xml, f'C{row}', bilgisi)
+                sheet_xml = set_cell_xml(sheet_xml, f'E{row}', adet, is_number=True)
+                sheet_xml = set_formula_cell_xml(sheet_xml, f'F{row}', f_formula, birim_fiyat)
+                sheet_xml = set_formula_cell_xml(sheet_xml, f'H{row}', h_formula, ara_toplam)
             else:
-                # Boş kalan satırları temizle
+                # Boş satırlar
                 sheet_xml = set_cell_xml(sheet_xml, f'B{row}', '')
                 sheet_xml = set_cell_xml(sheet_xml, f'C{row}', '')
                 sheet_xml = set_cell_xml(sheet_xml, f'E{row}', '')
-            
+                sheet_xml = set_formula_cell_xml(sheet_xml, f'F{row}', f_formula, '')
+                sheet_xml = set_formula_cell_xml(sheet_xml, f'H{row}', '', '')
+        
+        # 4. Alt Toplamlar ve Dipnot
+        dipnot_metin = f"* Bu formda yer alan muayene ücretleri {yil} yılında yapılan muayene başvuruları için geçerlidir. Lütfen başvuru yılının doğruluğundan emin olunuz."
+        dipnot_formula = f'CONCATENATE("* Bu formda yer alan muayene ücretleri ",IF(C3="","...",C3)," yılında yapılan muayene başvuruları için geçerlidir. Lütfen başvuru yılının doğruluğundan emin olunuz.")'
+        sheet_xml = set_formula_cell_xml(sheet_xml, 'A20', dipnot_formula, dipnot_metin)
+        
+        kdv = toplam_tutar * 0.20
+        genel_toplam = toplam_tutar + kdv
+        
+        sheet_xml = set_formula_cell_xml(sheet_xml, 'F20', 'IF(F12="","",SUM(H12:H19))', toplam_tutar)
+        sheet_xml = set_formula_cell_xml(sheet_xml, 'F21', 'IF(H20="","",H20*0.2)', kdv)
+        sheet_xml = set_formula_cell_xml(sheet_xml, 'F22', 'IF(H20="","",H20+H21)', genel_toplam)
+        
+        # 5. Workbook XML - Excel açılışında zorunlu yeniden hesaplama
+        if wb_xml:
+            if '<calcPr' in wb_xml:
+                wb_xml = re.sub(r'<calcPr[^>]*/>', '<calcPr calcId="0" fullCalcOnLoad="1" forceFullCalc="1"/>', wb_xml)
+            else:
+                wb_xml = wb_xml.replace('</workbook>', '<calcPr calcId="0" fullCalcOnLoad="1" forceFullCalc="1"/></workbook>')
+
         with zipfile.ZipFile(output_path, 'w', compression=zipfile.ZIP_DEFLATED) as zout:
             for item in zin.infolist():
                 if item.filename == 'xl/worksheets/sheet1.xml':
                     zout.writestr(item.filename, sheet_xml.encode('utf-8'))
+                elif item.filename == 'xl/workbook.xml' and wb_xml:
+                    zout.writestr(item.filename, wb_xml.encode('utf-8'))
                 else:
                     zout.writestr(item.filename, zin.read(item.filename))
 
@@ -259,8 +383,31 @@ def process_excel(template_path, out_excel, out_pdf, data):
             pythoncom.CoInitialize()
             excel = win32com.client.DispatchEx("Excel.Application")
             excel.Visible = False; excel.DisplayAlerts = False
+            excel.EnableEvents = True
             wb_com = excel.Workbooks.Open(os.path.abspath(out_excel))
-            wb_com.ActiveSheet.ExportAsFixedFormat(0, os.path.abspath(out_pdf))
+            sh = wb_com.ActiveSheet
+
+            # Tüm formülleri (VLOOKUP fiyat tablosu dahil) sıfırdan yeniden hesapla
+            wb_com.Application.Calculate()
+            wb_com.Application.CalculateFull()
+            wb_com.Application.CalculateFullRebuild()
+
+            # Yazdırma alanını temizle ve sayfa ayarlarını düzenle (kırmızı başlık dahil)
+            try: sh.PageSetup.PrintArea = ""
+            except: pass
+            try:
+                ps = sh.PageSetup
+                ps.TopMargin = excel.InchesToPoints(0.3)
+                ps.BottomMargin = excel.InchesToPoints(0.3)
+                ps.LeftMargin = excel.InchesToPoints(0.25)
+                ps.RightMargin = excel.InchesToPoints(0.25)
+                ps.Zoom = False
+                ps.FitToPagesWide = 1
+                ps.FitToPagesTall = 1
+                ps.PrintGridlines = False
+            except: pass
+
+            sh.ExportAsFixedFormat(0, os.path.abspath(out_pdf))
             wb_com.Close(False)
             excel.Quit()
             pythoncom.CoUninitialize()
