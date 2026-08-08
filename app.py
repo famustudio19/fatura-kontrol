@@ -204,27 +204,32 @@ def set_cell_xml(sheet_xml, cell_ref, value, is_number=False, style=None):
         
     return sheet_xml
 
-def set_formula_cell_xml(sheet_xml, cell_ref, formula, value, style=None):
-    """Formula ve hesaplanmış değeri XML'e kayıpsız yazar."""
+def update_cell_value_only(sheet_xml, cell_ref, value):
+    """Mevcut hücrenin formülünü ve stilini %100 koruyup sadece <v> hesaplanmış değerini günceller."""
     pattern = rf'<c\s+r="{cell_ref}"([^>]*?)(?:/>|>(.*?)</c>)'
     match = re.search(pattern, sheet_xml, re.DOTALL)
+    if not match:
+        return sheet_xml
+    
+    attrs = match.group(1)
+    inner = match.group(2) if match.group(2) else ""
     
     val_str = "" if value is None or value == "" else str(value)
     if isinstance(value, float) and value.is_integer():
         val_str = str(int(value))
-    v_tag = f"<v>{html.escape(val_str)}</v>" if val_str != "" else ""
-    f_tag = f"<f>{html.escape(formula)}</f>" if formula else ""
-    
-    if match:
-        attrs = match.group(1)
-        s_match = re.search(r's="(\d+)"', attrs)
-        s_attr = f's="{s_match.group(1)}"' if s_match else (f's="{style}"' if style else '')
         
-        if not f_tag and not v_tag:
-            new_cell = f'<c r="{cell_ref}" {s_attr}/>'
-        else:
-            new_cell = f'<c r="{cell_ref}" {s_attr}>{f_tag}{v_tag}</c>'
-        sheet_xml = sheet_xml[:match.start()] + new_cell + sheet_xml[match.end():]
+    v_tag = f"<v>{html.escape(val_str)}</v>" if val_str != "" else "<v/>"
+    
+    if "<f" in inner:
+        f_match = re.search(r'(<f[^>]*>.*?</f>)', inner, re.DOTALL)
+        if f_match:
+            f_tag = f_match.group(1)
+            clean_attrs = re.sub(r'\s*t="(?:s|str|inlineStr)"', '', attrs)
+            new_inner = f"{f_tag}{v_tag}"
+            new_cell = f'<c r="{cell_ref}"{clean_attrs}>{new_inner}</c>'
+            sheet_xml = sheet_xml[:match.start()] + new_cell + sheet_xml[match.end():]
+            return sheet_xml
+            
     return sheet_xml
 
 def load_price_lookup(template_path):
@@ -272,12 +277,19 @@ def load_price_lookup(template_path):
     return lookup
 
 def fill_template_lossless(template_path, output_path, data):
-    """Excel şablonundaki kırmızı başlık, logo, formüller ve fiyatları %100 doğrulukla işler."""
+    """Excel şablonundaki kırmızı başlık, logo, formüller ve fiyatları %100 hatasız işler."""
     price_lookup = load_price_lookup(template_path)
     
     with zipfile.ZipFile(template_path, 'r') as zin:
         sheet_xml = zin.read('xl/worksheets/sheet1.xml').decode('utf-8')
-        wb_xml = zin.read('xl/workbook.xml').decode('utf-8') if 'xl/workbook.xml' in zin.namelist() else ""
+        rels_xml = zin.read('xl/_rels/workbook.xml.rels').decode('utf-8') if 'xl/_rels/workbook.xml.rels' in zin.namelist() else ""
+        ct_xml = zin.read('[Content_Types].xml').decode('utf-8') if '[Content_Types].xml' in zin.namelist() else ""
+        
+        # calcChain.xml referanslarını temizle (Excel onarım uyarısı vermemesi için)
+        if rels_xml:
+            rels_xml = re.sub(r'<Relationship[^>]*Target="calcChain\.xml"[^>]*/>', '', rels_xml)
+        if ct_xml:
+            ct_xml = re.sub(r'<Override[^>]*PartName="/xl/calcChain\.xml"[^>]*/>', '', ct_xml)
         
         # _x000a_ kaçış karakterlerini temizle
         sheet_xml = sheet_xml.replace('_x000a_', '\n')
@@ -304,9 +316,6 @@ def fill_template_lossless(template_path, output_path, data):
         
         for i in range(8):
             row = 12 + i
-            f_formula = f'IF($C$3="","",IFERROR(VLOOKUP(C{row},Veriler!$C$2:$E$53,IF($C$3=Veriler!$A$2,2,3),0),""))'
-            h_formula = f'IF(OR(E{row}="",F{row}=""),"",E{row}*F{row})'
-            
             if i < len(items):
                 item = items[i]
                 adi = item.get('adi', '')
@@ -320,7 +329,6 @@ def fill_template_lossless(template_path, output_path, data):
                 if bilgisi in price_lookup:
                     birim_fiyat = price_lookup[bilgisi].get(yil, price_lookup[bilgisi].get(2026, 0.0))
                 else:
-                    # Kısmi eşleşme dene
                     for k, v in price_lookup.items():
                         if k in bilgisi or bilgisi in k:
                             birim_fiyat = v.get(yil, v.get(2026, 0.0))
@@ -332,41 +340,42 @@ def fill_template_lossless(template_path, output_path, data):
                 sheet_xml = set_cell_xml(sheet_xml, f'B{row}', adi)
                 sheet_xml = set_cell_xml(sheet_xml, f'C{row}', bilgisi)
                 sheet_xml = set_cell_xml(sheet_xml, f'E{row}', adet, is_number=True)
-                sheet_xml = set_formula_cell_xml(sheet_xml, f'F{row}', f_formula, birim_fiyat)
-                sheet_xml = set_formula_cell_xml(sheet_xml, f'H{row}', h_formula, ara_toplam)
+                sheet_xml = update_cell_value_only(sheet_xml, f'F{row}', birim_fiyat)
+                sheet_xml = update_cell_value_only(sheet_xml, f'H{row}', ara_toplam)
             else:
                 # Boş satırlar
                 sheet_xml = set_cell_xml(sheet_xml, f'B{row}', '')
                 sheet_xml = set_cell_xml(sheet_xml, f'C{row}', '')
                 sheet_xml = set_cell_xml(sheet_xml, f'E{row}', '')
-                sheet_xml = set_formula_cell_xml(sheet_xml, f'F{row}', f_formula, '')
-                sheet_xml = set_formula_cell_xml(sheet_xml, f'H{row}', '', '')
+                sheet_xml = update_cell_value_only(sheet_xml, f'F{row}', '')
+                sheet_xml = update_cell_value_only(sheet_xml, f'H{row}', '')
         
-        # 4. Alt Toplamlar ve Dipnot
+        # 4. Alt Toplamlar ve Dipnot (H20: Toplam, H21: KDV, H22: Genel Toplam)
         dipnot_metin = f"* Bu formda yer alan muayene ücretleri {yil} yılında yapılan muayene başvuruları için geçerlidir. Lütfen başvuru yılının doğruluğundan emin olunuz."
-        dipnot_formula = f'CONCATENATE("* Bu formda yer alan muayene ücretleri ",IF(C3="","...",C3)," yılında yapılan muayene başvuruları için geçerlidir. Lütfen başvuru yılının doğruluğundan emin olunuz.")'
-        sheet_xml = set_formula_cell_xml(sheet_xml, 'A20', dipnot_formula, dipnot_metin)
+        m_a20 = re.search(r'<c\s+r="A20"([^>]*?)>(.*?)</c>', sheet_xml, re.DOTALL)
+        if m_a20:
+            f_a20 = re.search(r'(<f[^>]*>.*?</f>)', m_a20.group(2))
+            if f_a20:
+                new_a20 = f'<c r="A20"{m_a20.group(1)}>{f_a20.group(1)}<v>{html.escape(dipnot_metin)}</v></c>'
+                sheet_xml = sheet_xml[:m_a20.start()] + new_a20 + sheet_xml[m_a20.end():]
         
         kdv = toplam_tutar * 0.20
         genel_toplam = toplam_tutar + kdv
         
-        sheet_xml = set_formula_cell_xml(sheet_xml, 'F20', 'IF(F12="","",SUM(H12:H19))', toplam_tutar)
-        sheet_xml = set_formula_cell_xml(sheet_xml, 'F21', 'IF(H20="","",H20*0.2)', kdv)
-        sheet_xml = set_formula_cell_xml(sheet_xml, 'F22', 'IF(H20="","",H20+H21)', genel_toplam)
-        
-        # 5. Workbook XML - Excel açılışında zorunlu yeniden hesaplama
-        if wb_xml:
-            if '<calcPr' in wb_xml:
-                wb_xml = re.sub(r'<calcPr[^>]*/>', '<calcPr calcId="0" fullCalcOnLoad="1" forceFullCalc="1"/>', wb_xml)
-            else:
-                wb_xml = wb_xml.replace('</workbook>', '<calcPr calcId="0" fullCalcOnLoad="1" forceFullCalc="1"/></workbook>')
+        sheet_xml = update_cell_value_only(sheet_xml, 'H20', toplam_tutar)
+        sheet_xml = update_cell_value_only(sheet_xml, 'H21', kdv)
+        sheet_xml = update_cell_value_only(sheet_xml, 'H22', genel_toplam)
 
         with zipfile.ZipFile(output_path, 'w', compression=zipfile.ZIP_DEFLATED) as zout:
             for item in zin.infolist():
-                if item.filename == 'xl/worksheets/sheet1.xml':
+                if item.filename == 'xl/calcChain.xml':
+                    continue  # calcChain atlanıyor, böylece Excel açılışta sıfır onarım uyarısı verir
+                elif item.filename == 'xl/worksheets/sheet1.xml':
                     zout.writestr(item.filename, sheet_xml.encode('utf-8'))
-                elif item.filename == 'xl/workbook.xml' and wb_xml:
-                    zout.writestr(item.filename, wb_xml.encode('utf-8'))
+                elif item.filename == 'xl/_rels/workbook.xml.rels' and rels_xml:
+                    zout.writestr(item.filename, rels_xml.encode('utf-8'))
+                elif item.filename == '[Content_Types].xml' and ct_xml:
+                    zout.writestr(item.filename, ct_xml.encode('utf-8'))
                 else:
                     zout.writestr(item.filename, zin.read(item.filename))
 
