@@ -575,6 +575,10 @@ def pricing():
     return render_template('pricing.html',
                            user=current_user if current_user.is_authenticated else None)
 
+@app.route('/ads.txt')
+def ads_txt():
+    return send_file(os.path.join(BASE_DIR, 'static', 'ads.txt'), mimetype='text/plain')
+
 @app.route('/login', methods=['GET','POST'])
 def login():
     if current_user.is_authenticated:
