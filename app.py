@@ -115,6 +115,17 @@ def extract_data_from_pdf(pdf_path):
         m2 = re.search(r"E-Posta\s*([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)", full, re.IGNORECASE)
         if m2: data["eposta"] = m2.group(1).strip()
 
+        # Adreste il (şehir) eksikse otomatik tespit edip ekle (Keşan -> Keşan / EDİRNE)
+        try:
+            from turkey_geo import enrich_address_with_city
+            data["fatura_adresi"] = enrich_address_with_city(
+                data.get("fatura_adresi", ""),
+                data.get("vergi_dairesi", ""),
+                full
+            )
+        except Exception as e:
+            pass
+
         raw = []
         for p in pdf.pages:
             for table in p.extract_tables():
