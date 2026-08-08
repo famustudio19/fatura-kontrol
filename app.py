@@ -561,10 +561,7 @@ def stamp_pdf_banner(pdf_path, template_path):
         page_width  = page.get_width()
         page_height = page.get_height()
 
-        # Metin zaten varsa tekrar basma
         textpage = page.get_textpage()
-        all_text = textpage.get_text_range() or ""
-        already_has_header_text = "MUAYENE" in all_text
 
         # Tablo başlangıç konumunu dinamik tespit et
         table_top_y = None
@@ -584,7 +581,7 @@ def stamp_pdf_banner(pdf_path, template_path):
                 table_top_y = max(y_from_top2 - 30.0, 80.0)
 
         banner_h_pt = page_width * (69.0 / 842.25)  # ~48.8 pt
-        header_h_pt = table_top_y if table_top_y is not None else 105.0
+        header_h_pt = table_top_y if table_top_y is not None else 113.4
 
         SCALE = 4
         img_w = int(page_width * SCALE)
@@ -599,39 +596,43 @@ def stamp_pdf_banner(pdf_path, template_path):
             (0, 0)
         )
 
-        # 2. Başlık metni (Eğer LibreOffice gibi ortamlarda üst bilgi metni basılmamışsa)
-        if not already_has_header_text:
-            draw = ImageDraw.Draw(composite)
-            font_paths = [
-                "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf",
-                "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
-                "C:/Windows/Fonts/timesbd.ttf",
-                "C:/Windows/Fonts/arialbd.ttf",
-            ]
-            font = None
-            for fp in font_paths:
-                if os.path.exists(fp):
-                    try:
-                        font = ImageFont.truetype(fp, size=int(9.5 * SCALE))
-                        break
-                    except Exception:
-                        pass
-            if font is None:
-                font = ImageFont.load_default()
+        # 2. Başlık metni (MUAYENE GÖZETİM MERKEZİ BAŞKANLIĞI / ÖLÇÜ ALETLERİ FATURA DETAYI FORMU)
+        draw = ImageDraw.Draw(composite)
+        font_candidates = [
+            "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf",
+            "/usr/share/fonts/truetype/liberation2/LiberationSerif-Bold.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
+            "/usr/share/fonts/truetype/freefont/FreeSerifBold.ttf",
+            "C:/Windows/Fonts/timesbd.ttf",
+            "C:/Windows/Fonts/arialbd.ttf",
+            "LiberationSerif-Bold.ttf",
+            "DejaVuSerif-Bold.ttf",
+            "timesbd.ttf",
+            "arialbd.ttf",
+        ]
+        font = None
+        for fp in font_candidates:
+            try:
+                font = ImageFont.truetype(fp, size=int(9.5 * SCALE))
+                break
+            except Exception:
+                pass
+        if font is None:
+            font = ImageFont.load_default()
 
-            text1 = "MUAYENE GÖZETİM MERKEZİ BAŞKANLIĞI"
-            text2 = "ÖLÇÜ ALETLERİ FATURA DETAYI FORMU"
+        text1 = "MUAYENE GÖZETİM MERKEZİ BAŞKANLIĞI"
+        text2 = "ÖLÇÜ ALETLERİ FATURA DETAYI FORMU"
 
-            bb1 = draw.textbbox((0, 0), text1, font=font)
-            w1  = bb1[2] - bb1[0]
-            bb2 = draw.textbbox((0, 0), text2, font=font)
-            w2  = bb2[2] - bb2[0]
+        bb1 = draw.textbbox((0, 0), text1, font=font)
+        w1  = bb1[2] - bb1[0]
+        bb2 = draw.textbbox((0, 0), text2, font=font)
+        w2  = bb2[2] - bb2[0]
 
-            y1_px = int((banner_h_pt + 6.0) * SCALE)
-            y2_px = int((banner_h_pt + 6.0 + 11.5) * SCALE)
+        y1_px = int((banner_h_pt + 7.5) * SCALE)
+        y2_px = int((banner_h_pt + 7.5 + 11.5) * SCALE)
 
-            draw.text(((img_w - w1) / 2, y1_px), text1, fill="black", font=font)
-            draw.text(((img_w - w2) / 2, y2_px), text2, fill="black", font=font)
+        draw.text(((img_w - w1) / 2, y1_px), text1, fill="black", font=font)
+        draw.text(((img_w - w2) / 2, y2_px), text2, fill="black", font=font)
 
         # 3. PDF'e yerleştir (Tablo satırlarını asla kapatmaz)
         pdf_image = pdfium.PdfImage.new(pdf)
