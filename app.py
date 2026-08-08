@@ -487,14 +487,12 @@ def process_excel(template_path, out_excel, out_pdf, data):
 
 def stamp_pdf_banner(pdf_path, template_path):
     """
-    PDF'deki 'FATURA DETAYI' satırının üstüne kadar olan header alanını
-    dinamik olarak tespit eder ve kırmızı banner + başlık metnini Excel'in
-    orijinal piksel ve tipografi oranlarıyla yüksek çözünürlükte enjekte eder.
-    'FATURA DETAYI' tablosunun üstünde orijinal nefes payı (boşluk) tam korunur.
+    LibreOffice tarafından oluşturulan PDF'e orijinal kırmızı TSE başlığını
+    en üst kısma kristal netliğinde (300 DPI) yerleştirir.
     """
     try:
         import pypdfium2 as pdfium
-        from PIL import Image, ImageDraw, ImageFont
+        from PIL import Image
         import io
 
         with zipfile.ZipFile(template_path, 'r') as z:
@@ -504,99 +502,43 @@ def stamp_pdf_banner(pdf_path, template_path):
 
         pdf = pdfium.PdfDocument(pdf_path)
         if len(pdf) == 0:
+            pdf.close()
             return
 
         page = pdf[0]
-        page_width  = page.get_width()   # A4 ~595.28 pt
-        page_height = page.get_height()  # A4 ~841.92 pt
+        page_width  = page.get_width()
+        page_height = page.get_height()
 
-        # ── "FATURA DETAYI" metninin gerçek TABLO konumunu bul ───────────────
-        header_height_pts = 1.5748031496063 * 72   # varsayılan üst kenar boşluğu (~113.4 pt)
-        try:
-            textpage = page.get_textpage()
-            searcher = textpage.search('FATURA DETAYI', match_case=True)
-            best_y = None  # en alttaki (tablo içindeki) eşleşme
-            for _ in range(10):
-                match = searcher.get_next()
-                if not match:
-                    break
-                idx = match[0]
-                box = textpage.get_charbox(idx, loose=False)
-                y_from_top = page_height - box[3]
-                if 10 < y_from_top < 200:
-                    if best_y is None or y_from_top > best_y:
-                        best_y = y_from_top
-            if best_y is not None:
-                # Tablo üst kenarı metin tabanından ~8.8 pt yukarıdadır
-                header_height_pts = max(best_y - 8.8, 60)
-        except Exception as e:
-            print(f"Text search error (fallback to margin): {e}")
+        # Kırmızı banner yüksekliği (A4 genişliğinde orantılı ~48.8 pt)
+        banner_h_pt = page_width * (69.0 / 842.25)
+        
+        SCALE = 4
+        img_w = int(page_width * SCALE)
+        img_h = int(banner_h_pt * SCALE)
+        banner_resized = banner_pil.resize((img_w, img_h), Image.Resampling.LANCZOS)
 
-        # ── Kompozit görsel oluştur: banner + başlık metni ──────────────────────
-        SCALE = 4   # 288 DPI -> kristal netliğinde vektörel kalite
-        img_w = int(page_width  * SCALE)
-        img_h = int(header_height_pts * SCALE)
-
-        composite = Image.new('RGB', (img_w, img_h), 'white')
-
-        # Kırmızı banner (orijinal VML en-boy oranı: 842.25 x 69 pt)
-        banner_h_pt = page_width * (69.0 / 842.25)  # ~48.8 pt
-        banner_h_px = int(banner_h_pt * SCALE)
-        composite.paste(
-            banner_pil.resize((img_w, banner_h_px), Image.Resampling.LANCZOS),
-            (0, 0)
-        )
-
-        # Başlık metni (Times New Roman Kalın, 9.5-10 pt)
-        draw = ImageDraw.Draw(composite)
-        font_size_px = int(9.5 * SCALE)
-        font_paths = [
-            "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
-            "C:/Windows/Fonts/timesbd.ttf",
-            "C:/Windows/Fonts/arialbd.ttf",
-        ]
-        font = None
-        for fp in font_paths:
-            if os.path.exists(fp):
-                try:
-                    font = ImageFont.truetype(fp, size=font_size_px)
-                    break
-                except Exception:
-                    pass
-        if font is None:
-            font = ImageFont.load_default()
-
-        text1 = "MUAYENE GÖZETİM MERKEZİ BAŞKANLIĞI"
-        text2 = "ÖLÇÜ ALETLERİ FATURA DETAYI FORMU"
-        bb1 = draw.textbbox((0, 0), text1, font=font)
-        w1  = bb1[2] - bb1[0]
-        bb2 = draw.textbbox((0, 0), text2, font=font)
-        w2  = bb2[2] - bb2[0]
-
-        # Excel orijinal konumu: banner bitiminden sonra sırasıyla 7.5 pt ve 18.5 pt
-        y1_px = int((banner_h_pt + 7.5) * SCALE)
-        y2_px = int((banner_h_pt + 7.5 + 11.0) * SCALE)
-
-        draw.text(((img_w - w1) / 2, y1_px), text1, fill="black", font=font)
-        draw.text(((img_w - w2) / 2, y2_px), text2, fill="black", font=font)
-
-        # ── PDF image nesnesi olarak enjekte et ─────────────────────────────────
         pdf_image = pdfium.PdfImage.new(pdf)
-        pdf_image.set_bitmap(pdfium.PdfBitmap.from_pil(composite))
-
-        # PDF koord: sol-alt orijin, y yukarı; header alanı sayfanın üstünde
+        pdf_image.set_bitmap(pdfium.PdfBitmap.from_pil(banner_resized))
+        
+        # Sayfanın en üstüne yerleştir (x=0, y=page_height - banner_h_pt)
         pdf_image.set_matrix(pdfium.PdfMatrix(
             page_width, 0,
-            0, header_height_pts,
-            0, page_height - header_height_pts
+            0, banner_h_pt,
+            0, page_height - banner_h_pt
         ))
         page.insert_obj(pdf_image)
         page.gen_content()
-        pdf.save(pdf_path)
+
+        # io.BytesIO tamponuna yazıp dosyayı güvenle kaydet
+        buf = io.BytesIO()
+        pdf.save(buf)
         pdf.close()
+
+        with open(pdf_path, 'wb') as f:
+            f.write(buf.getvalue())
+            
     except Exception as e:
-        print(f"PDF stamp hatası: {e}")
+        print(f"PDF banner damgalama uyarısı: {e}")
 
 
 
