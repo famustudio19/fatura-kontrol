@@ -1,4 +1,4 @@
-import os, re, glob, json, uuid, time, traceback, threading
+import os, re, glob, json, uuid, time, traceback, threading, shutil
 from datetime import datetime, timedelta
 from flask import (Flask, render_template, request, redirect, url_for,
                    session, flash, send_file, jsonify, abort)
@@ -18,11 +18,20 @@ try:
 except ImportError:
     WIN32_AVAILABLE = False
 
+# PDF damgalama için zorunlu bağımlılıklar (eksikse başlık sessizce kaybolmasın)
+try:
+    import pypdfium2 as _pdfium
+    from PIL import Image as _PILImage
+    STAMP_AVAILABLE = True
+except ImportError:
+    STAMP_AVAILABLE = False
+
 # ─── UYGULAMA YAPISI ─────────────────────────────────────────────────────────
 BASE_DIR       = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER  = os.path.join(BASE_DIR, 'uploads')
 OUTPUT_FOLDER  = os.path.join(BASE_DIR, 'outputs')
 TEMPLATE_PATH  = os.path.join(BASE_DIR, 'FATURA2026.xlsx')   # Şablonu buraya koy
+BANNER_FALLBACK = os.path.join(BASE_DIR, 'tse_banner.png')   # Şablonda yoksa kullanılacak PNG
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'TSE-FATURA-SECRET-2026-LOCAL-ONLY')
@@ -305,6 +314,16 @@ def fill_template_lossless(template_path, output_path, data):
         # _x000a_ kaçış karakterlerini temizle
         sheet_xml = sheet_xml.replace('_x000a_', '\n')
         
+        # Üst bilgi (header) ve kenar boşluklarını evrensel standartta garanti et
+        clean_header = (
+            '<oddHeader>&amp;C&amp;G\r\n'
+            '&amp;B&amp;"Times New Roman"&amp;10&amp;K000000MUAYENE GÖZETİM MERKEZİ BAŞKANLIĞI\r\n'
+            'ÖLÇÜ ALETLERİ FATURA DETAYI FORMU</oddHeader>'
+        )
+        sheet_xml = re.sub(r'<oddHeader>.*?</oddHeader>', clean_header, sheet_xml, flags=re.DOTALL)
+        sheet_xml = re.sub(r'top="[\d\.]+"', 'top="1.5748031496063"', sheet_xml)
+        sheet_xml = re.sub(r'header="[\d\.]+"', 'header="0.118110236220472"', sheet_xml)
+        
         # 1. Başvuru Yılı
         yil = data.get('basvuru_yili')
         try: yil = int(yil) if yil else 2026
@@ -412,40 +431,50 @@ def process_excel(template_path, out_excel, out_pdf, data):
             wb_com.Application.CalculateFull()
             wb_com.Application.CalculateFullRebuild()
 
-            # Yazdırma alanını temizle ve sayfa ayarlarını düzenle (kırmızı başlık dahil)
-            try: sh.PageSetup.PrintArea = ""
-            except: pass
+            # Üst bilgi formatını evrensel &B formatında doğrula
             try:
-                ps = sh.PageSetup
-                ps.TopMargin = excel.InchesToPoints(0.3)
-                ps.BottomMargin = excel.InchesToPoints(0.3)
-                ps.LeftMargin = excel.InchesToPoints(0.25)
-                ps.RightMargin = excel.InchesToPoints(0.25)
-                ps.Zoom = False
-                ps.FitToPagesWide = 1
-                ps.FitToPagesTall = 1
-                ps.PrintGridlines = False
-            except: pass
+                sh.PageSetup.CenterHeader = (
+                    "&G\n&B&\"Times New Roman\"&10&K000000MUAYENE GÖZETİM MERKEZİ BAŞKANLIĞI\n"
+                    "ÖLÇÜ ALETLERİ FATURA DETAYI FORMU"
+                )
+                try:
+                    excel.ActiveWindow.View = 3  # xlPageLayoutView (üst bilginin PDF'e çıkmasını sağlar)
+                except:
+                    pass
+            except:
+                pass
 
             sh.ExportAsFixedFormat(0, os.path.abspath(out_pdf))
+            wb_com.Save()
             wb_com.Close(False)
             excel.Quit()
             pythoncom.CoUninitialize()
             pdf_converted = True
         except Exception as e:
-            pass
+            print(f"Excel COM PDF dönüşümü başarısız, LibreOffice denenecek: {e}")
+            traceback.print_exc()
 
-    # Eğer Windows COM yoksa veya başarısız olursa (Linux ortamı için LibreOffice)
+    # Eğer Windows COM yoksa veya başarısız olursa LibreOffice
     if not pdf_converted:
-        # LibreOffice'i birden fazla olası yoldan dene
         soffice_paths = [
+            shutil.which("soffice") or "",
+            shutil.which("soffice.exe") or "",
+            r"C:\Program Files\LibreOffice\program\soffice.exe",
+            r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
             "soffice",
             "/usr/bin/soffice",
             "/usr/lib/libreoffice/program/soffice",
             "/opt/libreoffice/program/soffice",
         ]
+        seen = set()
+        unique_paths = []
+        for p in soffice_paths:
+            if p and p not in seen:
+                seen.add(p)
+                unique_paths.append(p)
+
         last_err = None
-        for soffice_bin in soffice_paths:
+        for soffice_bin in unique_paths:
             try:
                 cmd = [
                     soffice_bin, "--headless", "--convert-to", "pdf",
@@ -457,8 +486,6 @@ def process_excel(template_path, out_excel, out_pdf, data):
                     stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                     timeout=60
                 )
-                # LibreOffice bazen çıktı dosyasını farklı isimle oluşturur
-                # (xlsx → xlsx.pdf yerine xlsx adıyla) — kontrol edelim
                 expected_pdf = os.path.abspath(out_pdf)
                 lo_pdf = os.path.splitext(os.path.abspath(out_excel))[0] + ".pdf"
                 if not os.path.exists(expected_pdf) and os.path.exists(lo_pdf):
@@ -477,33 +504,56 @@ def process_excel(template_path, out_excel, out_pdf, data):
 
         if not pdf_converted:
             raise RuntimeError(
-                f"PDF oluşturulamadı — LibreOffice kurulu değil veya hata verdi. "
+                f"PDF oluşturulamadı — Excel COM çalışmadı ve LibreOffice bulunamadı. "
                 f"Detay: {last_err}"
             )
 
-    # 3. PDF'in en üstüne kırmızı TSE başlığını damgala (LibreOffice VML desteklemediği için bu adım PDF'te başlığı %100 garanti eder)
-    if pdf_converted and os.path.exists(out_pdf):
-        stamp_pdf_banner(out_pdf, template_path)
+        # LibreOffice PageSetup üstbilgisini basmadığından başlık damgalaması zorunludur
+        if os.path.exists(out_pdf):
+            stamp_pdf_banner(out_pdf, template_path)
+
+def _load_banner_bytes(template_path):
+    """Şablondaki image2.png veya yedek tse_banner.png dosyasını yükler."""
+    if template_path and os.path.exists(template_path):
+        try:
+            with zipfile.ZipFile(template_path, 'r') as z:
+                if 'xl/media/image2.png' in z.namelist():
+                    return z.read('xl/media/image2.png')
+        except Exception as e:
+            print(f"Şablondan banner okunamadı: {e}")
+
+    if os.path.exists(BANNER_FALLBACK):
+        with open(BANNER_FALLBACK, 'rb') as f:
+            return f.read()
+
+    raise FileNotFoundError(
+        "Kırmızı TSE başlığı bulunamadı. "
+        "FATURA2026.xlsx içinde xl/media/image2.png veya uygulama klasöründe "
+        "tse_banner.png olmalı."
+    )
 
 def stamp_pdf_banner(pdf_path, template_path):
     """
-    LibreOffice tarafından oluşturulan PDF'e orijinal kırmızı TSE başlığını
-    en üst kısma kristal netliğinde (300 DPI) yerleştirir.
+    PDF'in en üstüne kırmızı TSE başlığı ve altındaki form başlık metnini
+    kristal netliğinde (300 DPI) yerleştirir.
     """
+    if not STAMP_AVAILABLE:
+        raise RuntimeError(
+            "PDF banner damgalama için pypdfium2 ve pillow gerekli. "
+            "pip install pypdfium2 pillow"
+        )
+
+    import pypdfium2 as pdfium
+    from PIL import Image, ImageDraw, ImageFont
+    import io
+
+    banner_bytes = _load_banner_bytes(template_path)
+    banner_pil = Image.open(io.BytesIO(banner_bytes)).convert('RGB')
+
+    pdf = pdfium.PdfDocument(pdf_path)
     try:
-        import pypdfium2 as pdfium
-        from PIL import Image
-        import io
-
-        with zipfile.ZipFile(template_path, 'r') as z:
-            banner_bytes = z.read('xl/media/image2.png')
-
-        banner_pil = Image.open(io.BytesIO(banner_bytes)).convert('RGB')
-
-        pdf = pdfium.PdfDocument(pdf_path)
         if len(pdf) == 0:
-            pdf.close()
-            return
+            raise RuntimeError("PDF boş — banner damgalanamadı")
 
         page = pdf[0]
         page_width  = page.get_width()
@@ -511,34 +561,73 @@ def stamp_pdf_banner(pdf_path, template_path):
 
         # Kırmızı banner yüksekliği (A4 genişliğinde orantılı ~48.8 pt)
         banner_h_pt = page_width * (69.0 / 842.25)
-        
+        header_h_pt = 113.3858  # Excel TopMargin (~113.4 pt)
+
         SCALE = 4
         img_w = int(page_width * SCALE)
-        img_h = int(banner_h_pt * SCALE)
-        banner_resized = banner_pil.resize((img_w, img_h), Image.Resampling.LANCZOS)
+        img_h = int(header_h_pt * SCALE)
 
+        composite = Image.new('RGB', (img_w, img_h), 'white')
+
+        # 1. Kırmızı banner (en üst kısım)
+        banner_h_px = int(banner_h_pt * SCALE)
+        composite.paste(
+            banner_pil.resize((img_w, banner_h_px), Image.Resampling.LANCZOS),
+            (0, 0)
+        )
+
+        # 2. Başlık metni (Times New Roman Kalın)
+        draw = ImageDraw.Draw(composite)
+        font_paths = [
+            "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
+            "C:/Windows/Fonts/timesbd.ttf",
+            "C:/Windows/Fonts/arialbd.ttf",
+        ]
+        font = None
+        for fp in font_paths:
+            if os.path.exists(fp):
+                try:
+                    font = ImageFont.truetype(fp, size=int(9.5 * SCALE))
+                    break
+                except Exception:
+                    pass
+        if font is None:
+            font = ImageFont.load_default()
+
+        text1 = "MUAYENE GÖZETİM MERKEZİ BAŞKANLIĞI"
+        text2 = "ÖLÇÜ ALETLERİ FATURA DETAYI FORMU"
+
+        bb1 = draw.textbbox((0, 0), text1, font=font)
+        w1  = bb1[2] - bb1[0]
+        bb2 = draw.textbbox((0, 0), text2, font=font)
+        w2  = bb2[2] - bb2[0]
+
+        y1_px = int((banner_h_pt + 7.5) * SCALE)
+        y2_px = int((banner_h_pt + 7.5 + 11.5) * SCALE)
+
+        draw.text(((img_w - w1) / 2, y1_px), text1, fill="black", font=font)
+        draw.text(((img_w - w2) / 2, y2_px), text2, fill="black", font=font)
+
+        # 3. PDF'e yerleştir
         pdf_image = pdfium.PdfImage.new(pdf)
-        pdf_image.set_bitmap(pdfium.PdfBitmap.from_pil(banner_resized))
-        
-        # Sayfanın en üstüne yerleştir (x=0, y=page_height - banner_h_pt)
+        pdf_image.set_bitmap(pdfium.PdfBitmap.from_pil(composite))
+
         pdf_image.set_matrix(pdfium.PdfMatrix(
             page_width, 0,
-            0, banner_h_pt,
-            0, page_height - banner_h_pt
+            0, header_h_pt,
+            0, page_height - header_h_pt
         ))
         page.insert_obj(pdf_image)
         page.gen_content()
 
-        # io.BytesIO tamponuna yazıp dosyayı güvenle kaydet
         buf = io.BytesIO()
         pdf.save(buf)
+    finally:
         pdf.close()
 
-        with open(pdf_path, 'wb') as f:
-            f.write(buf.getvalue())
-            
-    except Exception as e:
-        print(f"PDF banner damgalama uyarısı: {e}")
+    with open(pdf_path, 'wb') as f:
+        f.write(buf.getvalue())
 
 
 
