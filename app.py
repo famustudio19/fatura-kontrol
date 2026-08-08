@@ -321,7 +321,7 @@ def fill_template_lossless(template_path, output_path, data):
             'ÖLÇÜ ALETLERİ FATURA DETAYI FORMU</oddHeader>'
         )
         sheet_xml = re.sub(r'<oddHeader>.*?</oddHeader>', clean_header, sheet_xml, flags=re.DOTALL)
-        sheet_xml = re.sub(r'top="[\d\.]+"', 'top="1.35433070866142"', sheet_xml)
+        sheet_xml = re.sub(r'top="[\d\.]+"', 'top="1.5748031496063"', sheet_xml)
         sheet_xml = re.sub(r'header="[\d\.]+"', 'header="0.118110236220472"', sheet_xml)
         
         # 1. Başvuru Yılı
@@ -437,7 +437,7 @@ def process_excel(template_path, out_excel, out_pdf, data):
                     "&G\n&B&\"Times New Roman\"&10&K000000MUAYENE GÖZETİM MERKEZİ BAŞKANLIĞI\n"
                     "ÖLÇÜ ALETLERİ FATURA DETAYI FORMU"
                 )
-                sh.PageSetup.TopMargin = excel.InchesToPoints(1.35)
+                sh.PageSetup.TopMargin = excel.InchesToPoints(1.575)
                 sh.PageSetup.HeaderMargin = excel.InchesToPoints(0.12)
                 try:
                     excel.ActiveWindow.View = 3  # xlPageLayoutView (üst bilginin PDF'e çıkmasını sağlar)
@@ -573,7 +573,7 @@ def stamp_pdf_banner(pdf_path, template_path):
         if match:
             cbox = textpage.get_charbox(match[0], loose=False)
             y_from_top = page_height - cbox[3]
-            table_top_y = max(y_from_top - 6.0, 70.0)
+            table_top_y = max(y_from_top - 6.0, 80.0)
 
         if table_top_y is None:
             searcher2 = textpage.search("EVRAK NO")
@@ -581,10 +581,10 @@ def stamp_pdf_banner(pdf_path, template_path):
             if match2:
                 cbox2 = textpage.get_charbox(match2[0], loose=False)
                 y_from_top2 = page_height - cbox2[3]
-                table_top_y = max(y_from_top2 - 30.0, 70.0)
+                table_top_y = max(y_from_top2 - 30.0, 80.0)
 
         banner_h_pt = page_width * (69.0 / 842.25)  # ~48.8 pt
-        header_h_pt = table_top_y if table_top_y is not None else 88.0
+        header_h_pt = table_top_y if table_top_y is not None else 105.0
 
         SCALE = 4
         img_w = int(page_width * SCALE)
@@ -612,7 +612,7 @@ def stamp_pdf_banner(pdf_path, template_path):
             for fp in font_paths:
                 if os.path.exists(fp):
                     try:
-                        font = ImageFont.truetype(fp, size=int(9.2 * SCALE))
+                        font = ImageFont.truetype(fp, size=int(9.5 * SCALE))
                         break
                     except Exception:
                         pass
@@ -627,8 +627,8 @@ def stamp_pdf_banner(pdf_path, template_path):
             bb2 = draw.textbbox((0, 0), text2, font=font)
             w2  = bb2[2] - bb2[0]
 
-            y1_px = int((banner_h_pt + 3.0) * SCALE)
-            y2_px = int((banner_h_pt + 3.0 + 10.5) * SCALE)
+            y1_px = int((banner_h_pt + 6.0) * SCALE)
+            y2_px = int((banner_h_pt + 6.0 + 11.5) * SCALE)
 
             draw.text(((img_w - w1) / 2, y1_px), text1, fill="black", font=font)
             draw.text(((img_w - w2) / 2, y2_px), text2, fill="black", font=font)
