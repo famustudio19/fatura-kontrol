@@ -321,7 +321,7 @@ def fill_template_lossless(template_path, output_path, data):
             'ÖLÇÜ ALETLERİ FATURA DETAYI FORMU</oddHeader>'
         )
         sheet_xml = re.sub(r'<oddHeader>.*?</oddHeader>', clean_header, sheet_xml, flags=re.DOTALL)
-        sheet_xml = re.sub(r'top="[\d\.]+"', 'top="1.5748031496063"', sheet_xml)
+        sheet_xml = re.sub(r'top="[\d\.]+"', 'top="1.35433070866142"', sheet_xml)
         sheet_xml = re.sub(r'header="[\d\.]+"', 'header="0.118110236220472"', sheet_xml)
         
         # 1. Başvuru Yılı
@@ -398,16 +398,16 @@ def fill_template_lossless(template_path, output_path, data):
 
         with zipfile.ZipFile(output_path, 'w', compression=zipfile.ZIP_DEFLATED) as zout:
             for item in zin.infolist():
-                if item.filename == 'xl/calcChain.xml':
-                    continue  # calcChain atlanıyor, böylece Excel açılışta sıfır onarım uyarısı verir
-                elif item.filename == 'xl/worksheets/sheet1.xml':
-                    zout.writestr(item.filename, sheet_xml.encode('utf-8'))
+                if item.filename == 'xl/worksheets/sheet1.xml':
+                    zout.writestr(item, sheet_xml.encode('utf-8'))
                 elif item.filename == 'xl/_rels/workbook.xml.rels' and rels_xml:
-                    zout.writestr(item.filename, rels_xml.encode('utf-8'))
+                    zout.writestr(item, rels_xml.encode('utf-8'))
                 elif item.filename == '[Content_Types].xml' and ct_xml:
-                    zout.writestr(item.filename, ct_xml.encode('utf-8'))
+                    zout.writestr(item, ct_xml.encode('utf-8'))
+                elif item.filename == 'xl/calcChain.xml':
+                    continue
                 else:
-                    zout.writestr(item.filename, zin.read(item.filename))
+                    zout.writestr(item, zin.read(item.filename))
 
 # ─── EXCEL VE PDF YAZMA (ÇAPRAZ PLATFORM: WINDOWS & LINUX) ────────────────────
 def process_excel(template_path, out_excel, out_pdf, data):
@@ -431,12 +431,14 @@ def process_excel(template_path, out_excel, out_pdf, data):
             wb_com.Application.CalculateFull()
             wb_com.Application.CalculateFullRebuild()
 
-            # Üst bilgi formatını evrensel &B formatında doğrula
+            # Üst bilgi formatını evrensel &B formatında ve doğru kenar boşluğuyla ayarla
             try:
                 sh.PageSetup.CenterHeader = (
                     "&G\n&B&\"Times New Roman\"&10&K000000MUAYENE GÖZETİM MERKEZİ BAŞKANLIĞI\n"
                     "ÖLÇÜ ALETLERİ FATURA DETAYI FORMU"
                 )
+                sh.PageSetup.TopMargin = excel.InchesToPoints(1.35)
+                sh.PageSetup.HeaderMargin = excel.InchesToPoints(0.12)
                 try:
                     excel.ActiveWindow.View = 3  # xlPageLayoutView (üst bilginin PDF'e çıkmasını sağlar)
                 except:
@@ -534,8 +536,8 @@ def _load_banner_bytes(template_path):
 
 def stamp_pdf_banner(pdf_path, template_path):
     """
-    PDF'in en üstüne kırmızı TSE başlığı ve altındaki form başlık metnini
-    kristal netliğinde (300 DPI) yerleştirir.
+    LibreOffice PDF çıktısına kırmızı TSE başlığı ve altındaki form başlık metnini
+    tablo satırlarını kapatmayacak şekilde kompakt ve net (300 DPI) yerleştirir.
     """
     if not STAMP_AVAILABLE:
         raise RuntimeError(
@@ -559,9 +561,30 @@ def stamp_pdf_banner(pdf_path, template_path):
         page_width  = page.get_width()
         page_height = page.get_height()
 
-        # Kırmızı banner yüksekliği (A4 genişliğinde orantılı ~48.8 pt)
-        banner_h_pt = page_width * (69.0 / 842.25)
-        header_h_pt = 113.3858  # Excel TopMargin (~113.4 pt)
+        # Metin zaten varsa tekrar basma
+        textpage = page.get_textpage()
+        all_text = textpage.get_text_range() or ""
+        already_has_header_text = "MUAYENE" in all_text
+
+        # Tablo başlangıç konumunu dinamik tespit et
+        table_top_y = None
+        searcher = textpage.search("FATURA DETAYI")
+        match = searcher.get_next()
+        if match:
+            cbox = textpage.get_charbox(match[0], loose=False)
+            y_from_top = page_height - cbox[3]
+            table_top_y = max(y_from_top - 6.0, 70.0)
+
+        if table_top_y is None:
+            searcher2 = textpage.search("EVRAK NO")
+            match2 = searcher2.get_next()
+            if match2:
+                cbox2 = textpage.get_charbox(match2[0], loose=False)
+                y_from_top2 = page_height - cbox2[3]
+                table_top_y = max(y_from_top2 - 30.0, 70.0)
+
+        banner_h_pt = page_width * (69.0 / 842.25)  # ~48.8 pt
+        header_h_pt = table_top_y if table_top_y is not None else 88.0
 
         SCALE = 4
         img_w = int(page_width * SCALE)
@@ -576,40 +599,41 @@ def stamp_pdf_banner(pdf_path, template_path):
             (0, 0)
         )
 
-        # 2. Başlık metni (Times New Roman Kalın)
-        draw = ImageDraw.Draw(composite)
-        font_paths = [
-            "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
-            "C:/Windows/Fonts/timesbd.ttf",
-            "C:/Windows/Fonts/arialbd.ttf",
-        ]
-        font = None
-        for fp in font_paths:
-            if os.path.exists(fp):
-                try:
-                    font = ImageFont.truetype(fp, size=int(9.5 * SCALE))
-                    break
-                except Exception:
-                    pass
-        if font is None:
-            font = ImageFont.load_default()
+        # 2. Başlık metni (Eğer LibreOffice gibi ortamlarda üst bilgi metni basılmamışsa)
+        if not already_has_header_text:
+            draw = ImageDraw.Draw(composite)
+            font_paths = [
+                "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf",
+                "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
+                "C:/Windows/Fonts/timesbd.ttf",
+                "C:/Windows/Fonts/arialbd.ttf",
+            ]
+            font = None
+            for fp in font_paths:
+                if os.path.exists(fp):
+                    try:
+                        font = ImageFont.truetype(fp, size=int(9.2 * SCALE))
+                        break
+                    except Exception:
+                        pass
+            if font is None:
+                font = ImageFont.load_default()
 
-        text1 = "MUAYENE GÖZETİM MERKEZİ BAŞKANLIĞI"
-        text2 = "ÖLÇÜ ALETLERİ FATURA DETAYI FORMU"
+            text1 = "MUAYENE GÖZETİM MERKEZİ BAŞKANLIĞI"
+            text2 = "ÖLÇÜ ALETLERİ FATURA DETAYI FORMU"
 
-        bb1 = draw.textbbox((0, 0), text1, font=font)
-        w1  = bb1[2] - bb1[0]
-        bb2 = draw.textbbox((0, 0), text2, font=font)
-        w2  = bb2[2] - bb2[0]
+            bb1 = draw.textbbox((0, 0), text1, font=font)
+            w1  = bb1[2] - bb1[0]
+            bb2 = draw.textbbox((0, 0), text2, font=font)
+            w2  = bb2[2] - bb2[0]
 
-        y1_px = int((banner_h_pt + 7.5) * SCALE)
-        y2_px = int((banner_h_pt + 7.5 + 11.5) * SCALE)
+            y1_px = int((banner_h_pt + 3.0) * SCALE)
+            y2_px = int((banner_h_pt + 3.0 + 10.5) * SCALE)
 
-        draw.text(((img_w - w1) / 2, y1_px), text1, fill="black", font=font)
-        draw.text(((img_w - w2) / 2, y2_px), text2, fill="black", font=font)
+            draw.text(((img_w - w1) / 2, y1_px), text1, fill="black", font=font)
+            draw.text(((img_w - w2) / 2, y2_px), text2, fill="black", font=font)
 
-        # 3. PDF'e yerleştir
+        # 3. PDF'e yerleştir (Tablo satırlarını asla kapatmaz)
         pdf_image = pdfium.PdfImage.new(pdf)
         pdf_image.set_bitmap(pdfium.PdfBitmap.from_pil(composite))
 
