@@ -43,7 +43,7 @@ db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
-ADSENSE_CLIENT = 'ca-pub-6335356250153811'  # Google AdSense Yayıncı ID'niz
+ADSENSE_CLIENT = 'ca-pub-6336356250153811'  # Google AdSense Yayıncı ID'niz
 ADSENSE_SLOT_LEFT  = 'XXXXXXXXXX'   # Sol reklam alanı
 ADSENSE_SLOT_RIGHT = 'XXXXXXXXXX'   # Sağ reklam alanı
 
