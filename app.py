@@ -661,23 +661,25 @@ def stamp_pdf_banner(pdf_path, template_path):
 
 
 
-# ─── IP BAZLI KOTA TAKIBI (veritabanı gerektirmiyor) ──────────────────────────
-ip_quota = {}   # { ip: {'used': int, 'bonus': int, 'date': str} }
-
-def get_ip():
-    return request.headers.get('X-Forwarded-For', request.remote_addr).split(',')[0].strip()
-
+# ─── OTURUM BAZLI KOTA TAKIBI (Veritabanı gerektirmez, çerezde saklanır) ───
 def get_quota():
-    """Kullanıcının günlük kota bilgisini döndürür."""
-    ip    = get_ip()
+    """Kullanıcının günlük kota bilgisini (tarayıcı çerezinde) döndürür."""
     today = datetime.utcnow().strftime('%Y-%m-%d')
-    if ip not in ip_quota or ip_quota[ip]['date'] != today:
-        ip_quota[ip] = {'used': 0, 'bonus': 0, 'date': today}
-    return ip_quota[ip]
+    session.permanent = True  # Tarayıcı kapanıp açılsa da sürsün
+    
+    quota = session.get('quota', {})
+    if not quota or quota.get('date') != today:
+        quota = {'used': 0, 'bonus': 0, 'date': today}
+        session['quota'] = quota
+        
+    return quota
+
+def save_quota(q):
+    session['quota'] = q
 
 def remaining_quota():
     q = get_quota()
-    return max(0, FREE_LIMIT + q['bonus'] - q['used'])
+    return max(0, FREE_LIMIT + q.get('bonus', 0) - q.get('used', 0))
 
 # ─── ROTALAR ───────────────────────────────────────────────────────────────
 @app.route('/')
@@ -697,9 +699,10 @@ def upload():
 # ─ Reklam izleme: bonus hak ver ─────────────────────────────────────────────
 @app.route('/api/ad_reward', methods=['POST'])
 def api_ad_reward():
-    """Reklam izlendikten sonra çağrılır; IP'ye bonus hak ekler."""
+    """Reklam izlendikten sonra çağrılır; bonus hak ekler."""
     q = get_quota()
     q['bonus'] += AD_REWARD_COUNT
+    save_quota(q)
     return jsonify({'remaining': remaining_quota(), 'added': AD_REWARD_COUNT})
 
 @app.route('/api/quota')
@@ -770,6 +773,7 @@ def api_process():
     if results:
         q = get_quota()
         q['used'] += len(results)
+        save_quota(q)
 
     return jsonify({'job_id': job_id, 'results': results, 'errors': errors, 'remaining': remaining_quota()})
 
