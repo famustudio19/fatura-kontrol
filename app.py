@@ -141,12 +141,14 @@ def extract_data_from_pdf(pdf_path):
                 hi=prj=tab=btr=-1
                 for i, row in enumerate(table):
                     rc=[str(c).replace('\n',' ').strip() if c else '' for c in row]
-                    if 'Proje Kay' in ' '.join(rc):
+                    joined=' '.join(rc)
+                    if 'Proje Kay' in joined:
                         hi=i
                         for j,cell in enumerate(rc):
                             if 'Proje Kay' in cell: prj=j
                             elif 'Tabanca' in cell or 'Saya' in cell: tab=j
-                            elif 'Türü' in cell or 'T\u00fcr\u00fc' in cell: btr=j
+                            # Başvuru Türü sütununu çeşitli yazım biçimleriyle yakala
+                            elif any(k in cell for k in ('Türü','Türü','Turu','Tür','Basvuru','Başvuru','Muayene Tür')): btr=j
                         break
                 if hi!=-1 and prj!=-1:
                     for row in table[hi+1:]:
@@ -162,10 +164,22 @@ def extract_data_from_pdf(pdf_path):
                                     bt=str(row[btr]).replace('\n',' ').strip()
                                 raw.append({'proje_no':pno,'adet':adet,'basvuru_turu':bt})
 
+        # Tüm PDF metninden de TAS tespiti yap (tablo sütunu bulunamasa bile)
+        full_text_upper = full.upper() if full else ''
+        full_text_is_tas = any(k in full_text_upper for k in (
+            'TAMİR AYAR SONRASI', 'TAMIR AYAR SONRASI', 'TAS İLK', 'TAS ILK',
+            'BAŞVURU TÜRÜ: TAS', 'BASVURU TURU: TAS',
+            'TAMİR-AYAR', 'TAMIR-AYAR'
+        ))
+
         grouped={}
         for item in raw:
             pfx=item['proje_no'].split('-')[0].upper()
-            is_tas=any(k in item['basvuru_turu'].upper() for k in ('TAS','TAMİR','TAMIR'))
+            # Hem satır bazlı başvuru türü hem de tam metin tespitine bak
+            is_tas=(
+                any(k in item['basvuru_turu'].upper() for k in ('TAS','TAMİR','TAMIR','TAMIR AYAR','TAMİR AYAR'))
+                or (item['basvuru_turu'] == '' and full_text_is_tas)
+            )
             key=f"{pfx}_{'TAS' if is_tas else 'PER'}"
             if key not in grouped: grouped[key]={'prefix':pfx,'is_tas':is_tas,'adet':0}
             grouped[key]['adet']+=item['adet']
