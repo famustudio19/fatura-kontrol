@@ -346,3 +346,73 @@ function updateQuotaUI(remaining) {
   const startBtn = document.getElementById('webStartBtn');
   if (startBtn) startBtn.disabled = remaining <= 0;
 }
+
+// ─── ADBLOCK TESPİT SİSTEMİ ───────────────────────────────────────────────────
+function checkAdBlocker() {
+  if (sessionStorage.getItem('abNoticeDismissed') === '1') return;
+
+  let isBlocked = false;
+
+  // 1. Yöntem: Tuzak (Bait) DOM Element Testi
+  const bait = document.createElement('div');
+  bait.innerHTML = '&nbsp;';
+  bait.className = 'adsbox ad-placement ad-unit adsbygoogle doubleclick';
+  bait.style.cssText = 'position: absolute !important; left: -9999px !important; top: -9999px !important; width: 1px !important; height: 1px !important; pointer-events: none;';
+  document.body.appendChild(bait);
+
+  window.setTimeout(() => {
+    try {
+      const baitStyle = window.getComputedStyle(bait);
+      if (
+        !bait ||
+        bait.offsetParent === null ||
+        bait.offsetHeight === 0 ||
+        bait.offsetLeft === 0 ||
+        baitStyle.getPropertyValue('display') === 'none' ||
+        baitStyle.getPropertyValue('visibility') === 'hidden'
+      ) {
+        isBlocked = true;
+      }
+      bait.remove();
+    } catch (e) {
+      isBlocked = true;
+    }
+
+    // 2. Yöntem: Reklam Ağı İstek Testi
+    fetch('https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js', {
+      method: 'HEAD',
+      mode: 'no-cors'
+    }).catch(() => {
+      isBlocked = true;
+      showAbNotice();
+    }).then(() => {
+      if (isBlocked) {
+        showAbNotice();
+      }
+    });
+
+    if (isBlocked) {
+      showAbNotice();
+    }
+  }, 400);
+}
+
+function showAbNotice() {
+  const overlay = document.getElementById('abNoticeOverlay');
+  if (overlay) {
+    overlay.classList.add('active');
+  }
+}
+
+function dismissAbNotice() {
+  const overlay = document.getElementById('abNoticeOverlay');
+  if (overlay) {
+    overlay.classList.remove('active');
+  }
+  sessionStorage.setItem('abNoticeDismissed', '1');
+}
+
+// Sayfa tamamen yüklendiğinde AdBlock kontrolü yap
+window.addEventListener('load', () => {
+  setTimeout(checkAdBlocker, 500);
+});

@@ -214,6 +214,43 @@
   </div>
 </div>
 
+<!-- ─── ADBLOCK TESPİT MODAL ─── -->
+<div class="ab-notice-overlay" id="abNoticeOverlay">
+  <div class="ab-card">
+    <div class="ab-icon-wrap">
+      <span class="ab-shield-icon">🛡️</span>
+    </div>
+    <h3 class="ab-title">Reklam Engelleyici (AdBlock) Tespit Edildi</h3>
+    <p class="ab-desc">
+      <strong>Fatura Aktarım Otomasyonu</strong>'nu sizlere tamamen <strong>ücretsiz</strong> sunabilmemiz için sunucu ve geliştirme masraflarını reklam gelirleriyle karşılıyoruz.
+    </p>
+    
+    <div class="ab-steps">
+      <div class="ab-step-item">
+        <span class="ab-step-num">1</span>
+        <span>Tarayıcınızın sağ üstündeki <strong>AdBlock</strong> eklentisi simgesine tıklayın.</span>
+      </div>
+      <div class="ab-step-item">
+        <span class="ab-step-num">2</span>
+        <span><strong>"Bu sitede duraklat"</strong> veya <strong>"Devre dışı bırak"</strong> seçeneğini seçin.</span>
+      </div>
+      <div class="ab-step-item">
+        <span class="ab-step-num">3</span>
+        <span>Aşağıdaki butona basarak sayfayı yenileyin.</span>
+      </div>
+    </div>
+
+    <div class="ab-actions">
+      <button class="btn-ab-reload" onclick="location.reload()">
+        🔄 Reklam Engelleyiciyi Kapattım, Sayfayı Yenile
+      </button>
+      <button class="btn-ab-continue" onclick="dismissAbNotice()">
+        Anladım, Kapat ve Devam Et
+      </button>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
