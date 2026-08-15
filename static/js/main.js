@@ -261,17 +261,19 @@ document.addEventListener('DOMContentLoaded', () => {
 let adTimerInterval = null;
 
 function openAdModal() {
-  document.getElementById('adModalOverlay').classList.add('active');
+  const modal = document.getElementById('rewardModalOverlay') || document.getElementById('adModalOverlay');
+  if (modal) modal.classList.add('active');
   startAdTimer(5);
 }
 
 function closeAdModal() {
-  document.getElementById('adModalOverlay').classList.remove('active');
+  const modal = document.getElementById('rewardModalOverlay') || document.getElementById('adModalOverlay');
+  if (modal) modal.classList.remove('active');
   clearInterval(adTimerInterval);
 }
 
 function startAdTimer(seconds) {
-  const timerEl  = document.getElementById('adTimerDisplay');
+  const timerEl  = document.getElementById('rewardTimerDisplay') || document.getElementById('adTimerDisplay');
   const claimBtn = document.getElementById('btnClaimReward');
   claimBtn.disabled = true;
   claimBtn.innerText = `⏳ Lütfen bekleyin...`;

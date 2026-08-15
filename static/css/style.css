@@ -43,8 +43,8 @@ body {
   padding: 0 12px;
 }
 
-/* YAN REKLAM PANELLER */
-.ad-sidebar {
+/* YAN PANELLER (Sponsor & Widget) */
+.side-column {
   width: 160px;
   min-width: 160px;
   position: sticky;
@@ -54,7 +54,7 @@ body {
   gap: 16px;
 }
 
-.ad-box {
+.sponsor-box {
   background: var(--ad-bg);
   border: 1px dashed var(--ad-border);
   border-radius: 8px;
@@ -69,10 +69,10 @@ body {
   padding: 12px 8px;
 }
 
-.ad-box-tall  { height: 600px; padding: 0; overflow: hidden; border: none; background: transparent; }
-.ad-box-short { height: 200px; }
+.sponsor-box-tall  { height: 600px; padding: 0; overflow: hidden; border: none; background: transparent; }
+.sponsor-box-short { height: 200px; }
 
-.ad-box .ad-label {
+.sponsor-box .sponsor-label {
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -405,8 +405,8 @@ body {
   margin-bottom: 10px;
 }
 
-/* ─── REKLAM İZLE MODAL ─── */
-.ad-modal-overlay {
+/* ─── ÖDÜL KAZAN MODAL ─── */
+.reward-modal-overlay {
   display: none;
   position: fixed;
   inset: 0;
@@ -415,9 +415,9 @@ body {
   align-items: center;
   justify-content: center;
 }
-.ad-modal-overlay.active { display: flex; }
+.reward-modal-overlay.active { display: flex; }
 
-.ad-modal {
+.reward-modal {
   background: white;
   border-radius: 16px;
   padding: 32px;
@@ -433,10 +433,10 @@ body {
   to   { transform: scale(1);    opacity: 1; }
 }
 
-.ad-modal h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 8px; }
-.ad-modal p  { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px; }
+.reward-modal h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 8px; }
+.reward-modal p  { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px; }
 
-.ad-placeholder {
+.reward-placeholder {
   background: #F1F5F9;
   border: 1px dashed #CBD5E1;
   border-radius: 10px;
@@ -454,7 +454,7 @@ body {
   padding: 6px 0;
 }
 
-.ad-timer {
+.reward-timer {
   font-size: 1.5rem;
   font-weight: 800;
   color: var(--tse-red);
@@ -488,6 +488,6 @@ body {
 
 /* RESPONSIVE */
 @media (max-width: 960px) {
-  .ad-sidebar { display: none; }
+  .side-column { display: none; }
   .page-layout { justify-content: center; }
 }

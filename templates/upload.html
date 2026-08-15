@@ -7,9 +7,9 @@
 <!-- ─── SAYFA YAPISI: SOL REKLAM + UYGULAMA + SAĞ REKLAM ─── -->
 <div class="page-layout">
 
-  <!-- SOL REKLAM SIDEBAR (AdSense) -->
-  <div class="ad-sidebar" id="adSidebarLeft">
-    <div class="ad-box ad-box-tall">
+  <!-- SOL REKLAM SIDEBAR -->
+  <div class="side-column" id="leftWidgetPanel">
+    <div class="sponsor-box sponsor-box-tall">
       <script>
         atOptions = {
           'key' : '85af8f45e92d27cdd0db65338759b1bb',
@@ -154,9 +154,9 @@
 
   </div><!-- /app-main-wrapper -->
 
-  <!-- SAĞ REKLAM SIDEBAR (AdSense) -->
-  <div class="ad-sidebar" id="adSidebarRight">
-    <div class="ad-box ad-box-tall">
+  <!-- SAĞ REKLAM SIDEBAR -->
+  <div class="side-column" id="rightWidgetPanel">
+    <div class="sponsor-box sponsor-box-tall">
       <script>
         atOptions = {
           'key' : '85af8f45e92d27cdd0db65338759b1bb',
@@ -173,12 +173,12 @@
 </div><!-- /page-layout -->
 
 <!-- ─── REKLAM İZLE MODAL ─── -->
-<div class="ad-modal-overlay" id="adModalOverlay">
-  <div class="ad-modal">
+<div class="reward-modal-overlay" id="rewardModalOverlay">
+  <div class="reward-modal">
     <h3>📺 Reklam İzle, Hak Kazan!</h3>
     <p>Kısa bir reklam izleyerek <strong>+{{ ad_reward }} PDF</strong> işleme hakkı kazanın.</p>
 
-    <div class="ad-placeholder">
+    <div class="reward-placeholder">
       <script>
         atOptions = {
           'key' : '5c72484b3cd463087eca96182a5ca135',
@@ -189,7 +189,7 @@
         };
       </script>
       <script src="https://airtightmodification.com/5c72484b3cd463087eca96182a5ca135/invoke.js"></script>
-      <div class="ad-timer" id="adTimerDisplay">5</div>
+      <div class="reward-timer" id="rewardTimerDisplay">5</div>
     </div>
 
     <button class="btn-claim" id="btnClaimReward" disabled onclick="claimReward()">
@@ -201,8 +201,8 @@
 </div>
 
 <!-- ─── GİZLİLİK / POLİTİKA MODAL ─── -->
-<div class="ad-modal-overlay" id="policyModalOverlay">
-  <div class="ad-modal" style="text-align: left; max-width: 500px;">
+<div class="reward-modal-overlay" id="policyModalOverlay">
+  <div class="reward-modal" style="text-align: left; max-width: 500px;">
     <h3 id="policyModalTitle" style="color: var(--tse-red);">Gizlilik Politikası</h3>
     <hr style="margin: 10px 0; border: none; border-top: 1px solid #E2E8F0;">
     <div id="policyModalBody" style="max-height: 300px; overflow-y: auto; font-size: 0.85rem; color: #475569; line-height: 1.5;">
