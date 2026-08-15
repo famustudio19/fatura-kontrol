@@ -147,8 +147,10 @@ def extract_data_from_pdf(pdf_path):
                         for j,cell in enumerate(rc):
                             if 'Proje Kay' in cell: prj=j
                             elif 'Tabanca' in cell or 'Saya' in cell: tab=j
-                            # Başvuru Türü sütununu çeşitli yazım biçimleriyle yakala
-                            elif any(k in cell for k in ('Türü','Türü','Turu','Tür','Basvuru','Başvuru','Muayene Tür')): btr=j
+                            # Sadece "Başvuru Türü" sütununu yakala; "Yakıt Türü" ile karışmasın
+                            # btr bir kez ayarlandıktan sonra üzerine yazma
+                            elif btr == -1 and ('Başvuru' in cell or 'Basvuru' in cell or 'Muayene Tür' in cell):
+                                btr=j
                         break
                 if hi!=-1 and prj!=-1:
                     for row in table[hi+1:]:
