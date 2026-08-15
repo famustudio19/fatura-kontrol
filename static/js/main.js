@@ -349,8 +349,6 @@ function updateQuotaUI(remaining) {
 
 // ─── ADBLOCK TESPİT SİSTEMİ ───────────────────────────────────────────────────
 function checkAdBlocker() {
-  if (sessionStorage.getItem('abNoticeDismissed') === '1') return;
-
   let isBlocked = false;
 
   // 1. Yöntem: Tuzak (Bait) DOM Element Testi
@@ -402,14 +400,6 @@ function showAbNotice() {
   if (overlay) {
     overlay.classList.add('active');
   }
-}
-
-function dismissAbNotice() {
-  const overlay = document.getElementById('abNoticeOverlay');
-  if (overlay) {
-    overlay.classList.remove('active');
-  }
-  sessionStorage.setItem('abNoticeDismissed', '1');
 }
 
 // Sayfa tamamen yüklendiğinde AdBlock kontrolü yap
