@@ -330,17 +330,13 @@ function updateQuotaUI(remaining) {
   bar.className = 'quota-bar ' + (remaining >= 3 ? 'quota-ok' : remaining > 0 ? 'quota-low' : 'quota-out');
 
   let watchBtn = document.getElementById('watchAdBtn');
-  if (remaining <= 2) {
-    if (!watchBtn) {
-      watchBtn = document.createElement('button');
-      watchBtn.className = 'btn-watch-ad';
-      watchBtn.id = 'watchAdBtn';
-      watchBtn.innerHTML = `📺 Reklam İzle +${adRewardCount} Hak Kazan`;
-      watchBtn.onclick = openAdModal;
-      bar.appendChild(watchBtn);
-    }
-  } else {
-    if (watchBtn) watchBtn.remove();
+  if (!watchBtn) {
+    watchBtn = document.createElement('button');
+    watchBtn.className = 'btn-watch-ad';
+    watchBtn.id = 'watchAdBtn';
+    watchBtn.innerHTML = `📺 Reklam İzle +${adRewardCount} Hak Kazan`;
+    watchBtn.onclick = openAdModal;
+    bar.appendChild(watchBtn);
   }
 
   const startBtn = document.getElementById('webStartBtn');
