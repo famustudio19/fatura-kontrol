@@ -1,4 +1,47 @@
+// ─── İLERLEME ÇUBUĞU ANİMASYON MOTORU ─────────────────────────────────────
+let _progressTimer = null;
+let _currentProgress = 0;
+
+function startProgressSimulation(fileCount) {
+  // Her PDF için ~4 saniye tahmini; 87%'e kadar smooth ilerler, son %13 sunucuya bırakılır
+  const estimatedMs = Math.max(5000, fileCount * 4000);
+  _currentProgress = 0;
+  setProgress(5); // anında küçük bir hareket
+
+  const startTime = Date.now();
+  clearInterval(_progressTimer);
+  _progressTimer = setInterval(() => {
+    const elapsed = Date.now() - startTime;
+    const ratio = elapsed / estimatedMs;
+    // easeOutQuad: hızlı başlar yavaşlar (gerçekçi his)
+    const eased = 1 - Math.pow(1 - Math.min(ratio, 1), 2);
+    const target = 5 + eased * 82; // 5% → 87% arası
+    if (target > _currentProgress) {
+      _currentProgress = target;
+      setProgress(_currentProgress);
+    }
+    if (_currentProgress >= 87) clearInterval(_progressTimer);
+  }, 120);
+}
+
+function setProgress(pct) {
+  const bar = document.getElementById('webProgressBar');
+  if (bar) bar.style.width = Math.min(100, pct).toFixed(1) + '%';
+}
+
+function finishProgress() {
+  clearInterval(_progressTimer);
+  setProgress(100);
+}
+
+function resetProgress() {
+  clearInterval(_progressTimer);
+  _currentProgress = 0;
+  setProgress(0);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+
   const pdfFileInput    = document.getElementById('pdfFileInput');
   const pdfFileLabel    = document.getElementById('pdfFileLabel');
   const dropzonePdf     = document.getElementById('dropzonePdf');
@@ -137,14 +180,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
       webStartBtn.disabled = true;
       webStartBtn.style.opacity = '0.7';
-      if (webProgressBar) webProgressBar.style.width = '20%';
       if (logStatusText) logStatusText.innerText = 'İşleniyor...';
 
       logTerm('Fatura Aktarım İşlemi başlatıldı...');
       logTerm(`Excel Şablonu (${selectedExcelFile.name}) okunuyor...`);
+      logTerm(`${selectedFiles.length} PDF dosyası işlenecek, lütfen bekleyin...`);
+
+      // Dosya sayısına göre tahmini ilerleme animasyonu başlat
+      startProgressSimulation(selectedFiles.length);
 
       try {
-        if (webProgressBar) webProgressBar.style.width = '50%';
         logTerm('PDF tabloları analiz ediliyor...');
 
         const response = await fetch('/api/process', { method: 'POST', body: formData });
@@ -182,7 +227,6 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
 
-        if (webProgressBar) webProgressBar.style.width = '90%';
         logTerm('İşlem tamamlandı! Çıktı dosyaları hazır.');
 
         // Kota göstergesini güncelle
@@ -210,7 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
           alert('Tüm dosyalar başarıyla indirildi!');
         }
 
-        if (webProgressBar) webProgressBar.style.width = '100%';
+        finishProgress();
         if (logStatusText) logStatusText.innerText = 'Tamamlandı ✔';
         resetState();
 
@@ -249,7 +293,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function resetState() {
     webStartBtn.disabled = serverRemaining <= 0;
     webStartBtn.style.opacity = '1';
-    if (webProgressBar) webProgressBar.style.width = '0%';
+    setTimeout(() => resetProgress(), 1500); // 1.5sn sonra sıfırla (100% görünsün)
     if (logStatusText)  logStatusText.innerText = '● Hazır — Dosyaları seçip İşlemi Başlatın';
   }
 
