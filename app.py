@@ -301,9 +301,26 @@ def load_price_lookup(template_path):
         print(f"Fiyat tablosu okuma uyarısı: {e}")
     return lookup
 
+def load_shared_string_index(template_path):
+    """sharedStrings.xml'deki her string için metin→index eşlemesi döndürür."""
+    idx_map = {}
+    try:
+        with zipfile.ZipFile(template_path, 'r') as z:
+            if 'xl/sharedStrings.xml' not in z.namelist():
+                return idx_map
+            ss = z.read('xl/sharedStrings.xml').decode('utf-8')
+            # Tüm <t> içeriklerini sırasıyla al
+            texts = re.findall(r'<t[^>]*>(.*?)</t>', ss)
+            for i, txt in enumerate(texts):
+                idx_map[txt.strip()] = i
+    except Exception as e:
+        print(f"SharedStrings okuma uyarısı: {e}")
+    return idx_map
+
 def fill_template_lossless(template_path, output_path, data):
     """Excel şablonundaki kırmızı başlık, logo, formüller ve fiyatları %100 hatasız işler."""
     price_lookup = load_price_lookup(template_path)
+    ss_index = load_shared_string_index(template_path)  # Açılır liste hücreleri için
     
     with zipfile.ZipFile(template_path, 'r') as zin:
         sheet_xml = zin.read('xl/worksheets/sheet1.xml').decode('utf-8')
@@ -373,7 +390,24 @@ def fill_template_lossless(template_path, output_path, data):
                 toplam_tutar += ara_toplam
                 
                 sheet_xml = set_cell_xml(sheet_xml, f'B{row}', adi)
-                sheet_xml = set_cell_xml(sheet_xml, f'C{row}', bilgisi)
+                
+                # C{row}: Açılır liste hücresi — shared string (t="s") olarak yazılmalı
+                # Böylece Excel dropdown seçimini tanır ve fiyat formülleri çalışır
+                if bilgisi in ss_index:
+                    ss_idx = ss_index[bilgisi]
+                    cell_ref = f'C{row}'
+                    pattern = rf'<c\s+r="{cell_ref}"([^>]*?)(?:/>|>(.*?)</c>)'
+                    m = re.search(pattern, sheet_xml, re.DOTALL)
+                    if m:
+                        s_m = re.search(r's="(\d+)"', m.group(1))
+                        s_attr = f's="{s_m.group(1)}"' if s_m else ''
+                        new_cell = f'<c r="{cell_ref}" {s_attr} t="s"><v>{ss_idx}</v></c>'
+                        sheet_xml = sheet_xml[:m.start()] + new_cell + sheet_xml[m.end():]
+                    else:
+                        sheet_xml = set_cell_xml(sheet_xml, cell_ref, bilgisi)
+                else:
+                    sheet_xml = set_cell_xml(sheet_xml, f'C{row}', bilgisi)
+                
                 sheet_xml = set_cell_xml(sheet_xml, f'E{row}', adet, is_number=True)
                 sheet_xml = update_cell_value_only(sheet_xml, f'F{row}', birim_fiyat)
                 sheet_xml = update_cell_value_only(sheet_xml, f'H{row}', ara_toplam)
