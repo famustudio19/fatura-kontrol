@@ -180,17 +180,10 @@
       <h3>📺 Reklam İzle, Hak Kazan!</h3>
       <p>Kısa bir reklam izleyerek <strong>+{{ ad_reward }} PDF</strong> işleme hakkı kazanın.</p>
 
-      <div class="reward-placeholder">
-        <script>
-          atOptions = {
-            'key' : '5c72484b3cd463087eca96182a5ca135',
-            'format' : 'iframe',
-            'height' : 250,
-            'width' : 300,
-            'params' : {}
-          };
-        </script>
-        <script src="https://airtightmodification.com/5c72484b3cd463087eca96182a5ca135/invoke.js"></script>
+      <div class="reward-placeholder" id="rewardAdPlaceholder">
+        <div id="rewardAdContainer" style="width: 300px; height: 250px; display: flex; align-items: center; justify-content: center; position: relative;">
+          <!-- Dinamik reklam iframe buraya yüklenecek -->
+        </div>
         <div class="reward-timer" id="rewardTimerDisplay">5</div>
       </div>
 

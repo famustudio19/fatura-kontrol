@@ -325,11 +325,49 @@ function switchToSmartlink() {
   clearInterval(adTimerInterval);
 }
 
+function loadModalBannerAd() {
+  const container = document.getElementById('rewardAdContainer');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const iframe = document.createElement('iframe');
+  iframe.id = 'modalAdIframe';
+  iframe.style.width = '300px';
+  iframe.style.height = '250px';
+  iframe.style.border = 'none';
+  iframe.style.overflow = 'hidden';
+  iframe.scrolling = 'no';
+
+  const adHtml = `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <style>body{margin:0;padding:0;overflow:hidden;background:#fff;display:flex;align-items:center;justify-content:center;}</style>
+  </head>
+  <body>
+    <script type="text/javascript">
+      atOptions = {
+        'key' : '5c72484b3cd463087eca96182a5ca135',
+        'format' : 'iframe',
+        'height' : 250,
+        'width' : 300,
+        'params' : {}
+      };
+    <\/script>
+    <script type="text/javascript" src="https://airtightmodification.com/5c72484b3cd463087eca96182a5ca135/invoke.js"><\/script>
+  </body>
+</html>`;
+
+  container.appendChild(iframe);
+  iframe.srcdoc = adHtml;
+}
+
 function switchToBannerAd() {
   const normalView = document.getElementById('rewardNormalView');
   const smartView  = document.getElementById('rewardSmartlinkView');
   if (normalView) normalView.style.display = 'block';
   if (smartView)  smartView.style.display  = 'none';
+  loadModalBannerAd();
   startAdTimer(5);
 }
 
@@ -337,18 +375,24 @@ function closeAdModal() {
   const modal = document.getElementById('rewardModalOverlay') || document.getElementById('adModalOverlay');
   if (modal) modal.classList.remove('active');
   clearInterval(adTimerInterval);
+  const container = document.getElementById('rewardAdContainer');
+  if (container) container.innerHTML = '';
 }
 
 function isBannerActuallyLoaded() {
-  const ph = document.querySelector('.reward-placeholder');
-  if (!ph) return false;
-  const iframes = ph.querySelectorAll('iframe');
-  for (const ifr of iframes) {
-    if (ifr.offsetHeight > 40 && ifr.offsetWidth > 40) {
-      return true;
-    }
+  if (window.isAdBlocked) return false;
+  const iframe = document.getElementById('modalAdIframe');
+  if (!iframe) return false;
+  try {
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    if (!doc || !doc.body) return false;
+    // Reklam yüklendiyse body içinde invoke.js tarafından oluşturulan bir iframe, a veya img olmalıdır
+    const hasAdElements = doc.body.querySelector('iframe, a, img, div[id*="container-5c72484b"]');
+    return !!hasAdElements;
+  } catch (e) {
+    // Cross-origin kısıtlaması oluştuysa reklam harici bir kaynaktan yüklenmiştir (başarılı)
+    return true;
   }
-  return false;
 }
 
 function startAdTimer(seconds) {
