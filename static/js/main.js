@@ -339,12 +339,25 @@ function closeAdModal() {
   clearInterval(adTimerInterval);
 }
 
+function isBannerActuallyLoaded() {
+  const ph = document.querySelector('.reward-placeholder');
+  if (!ph) return false;
+  const iframes = ph.querySelectorAll('iframe');
+  for (const ifr of iframes) {
+    if (ifr.offsetHeight > 40 && ifr.offsetWidth > 40) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function startAdTimer(seconds) {
   const timerEl  = document.getElementById('rewardTimerDisplay') || document.getElementById('adTimerDisplay');
   const claimBtn = document.getElementById('btnClaimReward');
   if (!claimBtn) return;
   claimBtn.disabled = true;
   claimBtn.innerText = `⏳ Lütfen bekleyin...`;
+  claimBtn.onclick = claimReward;
 
   let remaining = seconds;
   if (timerEl) timerEl.innerText = remaining;
@@ -355,14 +368,32 @@ function startAdTimer(seconds) {
     if (timerEl) timerEl.innerText = remaining;
     if (remaining <= 0) {
       clearInterval(adTimerInterval);
-      claimBtn.disabled = false;
-      claimBtn.innerText = `🎁 Hakkı Al (+${adRewardCount} PDF)`;
-      if (timerEl) timerEl.innerText = '✓';
+
+      // Reklamın gerçekten yüklenip yüklenmediğini doğrula
+      if (isBannerActuallyLoaded()) {
+        claimBtn.disabled = false;
+        claimBtn.innerText = `🎁 Hakkı Al (+${adRewardCount} PDF)`;
+        claimBtn.onclick = claimReward;
+        if (timerEl) timerEl.innerText = '✓';
+      } else {
+        // Reklam yüklenmemiş veya ağ engellemiş -> Bedava hak verme, Smartlink'e yönlendir!
+        claimBtn.disabled = false;
+        claimBtn.style.background = '#2563EB';
+        claimBtn.innerText = `⚡ Reklam Yüklenemedi ➔ Sponsor Linkiyle Hak Kazan`;
+        claimBtn.onclick = switchToSmartlink;
+        if (timerEl) timerEl.innerText = '⚠️';
+      }
     }
   }, 1000);
 }
 
 async function claimReward() {
+  // Ek güvenlik: Eğer reklam yüklenmediyse ve smartlink kullanılmadıysa hak verme
+  if (!isBannerActuallyLoaded() && !window.isAdBlocked) {
+    switchToSmartlink();
+    return;
+  }
+
   try {
     const resp = await fetch('/api/ad_reward', { method: 'POST' });
     const data = await resp.json();
