@@ -301,12 +301,35 @@ document.addEventListener('DOMContentLoaded', () => {
   updateQuotaUI(serverRemaining);
 });
 
-// ─── REKLAM İZLE MODAL ────────────────────────────────────────────────────────
+// ─── REKLAM İZLE / SMARTLINK MODAL ───────────────────────────────────────────
 let adTimerInterval = null;
+window.isAdBlocked = false;
 
 function openAdModal() {
   const modal = document.getElementById('rewardModalOverlay') || document.getElementById('adModalOverlay');
   if (modal) modal.classList.add('active');
+
+  // Eğer AdBlock veya kurumsal ağ reklamları engelliyorsa otomatik Smartlink göster
+  if (window.isAdBlocked) {
+    switchToSmartlink();
+  } else {
+    switchToBannerAd();
+  }
+}
+
+function switchToSmartlink() {
+  const normalView = document.getElementById('rewardNormalView');
+  const smartView  = document.getElementById('rewardSmartlinkView');
+  if (normalView) normalView.style.display = 'none';
+  if (smartView)  smartView.style.display  = 'block';
+  clearInterval(adTimerInterval);
+}
+
+function switchToBannerAd() {
+  const normalView = document.getElementById('rewardNormalView');
+  const smartView  = document.getElementById('rewardSmartlinkView');
+  if (normalView) normalView.style.display = 'block';
+  if (smartView)  smartView.style.display  = 'none';
   startAdTimer(5);
 }
 
@@ -319,21 +342,22 @@ function closeAdModal() {
 function startAdTimer(seconds) {
   const timerEl  = document.getElementById('rewardTimerDisplay') || document.getElementById('adTimerDisplay');
   const claimBtn = document.getElementById('btnClaimReward');
+  if (!claimBtn) return;
   claimBtn.disabled = true;
   claimBtn.innerText = `⏳ Lütfen bekleyin...`;
 
   let remaining = seconds;
-  timerEl.innerText = remaining;
+  if (timerEl) timerEl.innerText = remaining;
 
   clearInterval(adTimerInterval);
   adTimerInterval = setInterval(() => {
     remaining--;
-    timerEl.innerText = remaining;
+    if (timerEl) timerEl.innerText = remaining;
     if (remaining <= 0) {
       clearInterval(adTimerInterval);
       claimBtn.disabled = false;
       claimBtn.innerText = `🎁 Hakkı Al (+${adRewardCount} PDF)`;
-      timerEl.innerText = '✓';
+      if (timerEl) timerEl.innerText = '✓';
     }
   }, 1000);
 }
@@ -348,12 +372,44 @@ async function claimReward() {
     if (typeof data.remaining !== 'undefined') {
       serverRemaining = data.remaining;
       updateQuotaUI(data.remaining);
-      // updateQuotaUI global erişim için
     }
     alert(`✅ +${data.added} PDF hakkı eklendi! Artık ${data.remaining} hakkınız var.`);
   } catch (err) {
     alert('Hak eklenirken bir hata oluştu.');
   }
+}
+
+// Smartlink tıklandığında anında hakkı tanımla
+async function handleSmartlinkClick() {
+  const btn = document.getElementById('btnSmartlinkClaim');
+  if (btn) {
+    btn.innerHTML = '⏳ Hak Tanımlanıyor...';
+    btn.style.pointerEvents = 'none';
+    btn.style.opacity = '0.7';
+  }
+
+  // Kullanıcı yeni sekmede reklamı açarken sunucuya ödülü işle
+  setTimeout(async () => {
+    try {
+      const resp = await fetch('/api/ad_reward', { method: 'POST' });
+      const data = await resp.json();
+      closeAdModal();
+
+      if (typeof data.remaining !== 'undefined') {
+        serverRemaining = data.remaining;
+        updateQuotaUI(data.remaining);
+      }
+      alert(`🎉 Sponsor ziyareti için teşekkürler! +${data.added} PDF hakkı eklendi (Toplam: ${data.remaining} hak).`);
+    } catch (e) {
+      alert('Hak eklenirken bir sorun oluştu.');
+    } finally {
+      if (btn) {
+        btn.innerHTML = `🚀 Sponsor Bağlantısını Aç (+${adRewardCount} Hak Al)`;
+        btn.style.pointerEvents = 'auto';
+        btn.style.opacity = '1';
+      }
+    }
+  }, 1200);
 }
 
 // updateQuotaUI'yi global erişilebilir yap
@@ -387,8 +443,14 @@ function updateQuotaUI(remaining) {
   if (startBtn) startBtn.disabled = remaining <= 0;
 }
 
-// ─── ADBLOCK TESPİT SİSTEMİ ───────────────────────────────────────────────────
+// ─── ADBLOCK / KURUMSAL AĞ TESPİT SİSTEMİ ───────────────────────────────────────
 function checkAdBlocker() {
+  // Kullanıcı bu oturumda daha önce uyarışı kapattıysa modalı tekrar açma
+  if (sessionStorage.getItem('ab_dismissed') === '1') {
+    window.isAdBlocked = true;
+    return;
+  }
+
   let isBlocked = false;
 
   // 1. Yöntem: Tuzak (Bait) DOM Element Testi
@@ -422,17 +484,20 @@ function checkAdBlocker() {
       mode: 'no-cors'
     }).catch(() => {
       isBlocked = true;
-      showAbNotice();
+      markBlocked();
     }).then(() => {
-      if (isBlocked) {
-        showAbNotice();
-      }
+      if (isBlocked) markBlocked();
     });
 
-    if (isBlocked) {
-      showAbNotice();
-    }
+    if (isBlocked) markBlocked();
   }, 400);
+}
+
+function markBlocked() {
+  window.isAdBlocked = true;
+  if (sessionStorage.getItem('ab_dismissed') !== '1') {
+    showAbNotice();
+  }
 }
 
 function showAbNotice() {
@@ -440,6 +505,15 @@ function showAbNotice() {
   if (overlay) {
     overlay.classList.add('active');
   }
+}
+
+function dismissAbNotice() {
+  const overlay = document.getElementById('abNoticeOverlay');
+  if (overlay) {
+    overlay.classList.remove('active');
+  }
+  sessionStorage.setItem('ab_dismissed', '1');
+  window.isAdBlocked = true;
 }
 
 // Sayfa tamamen yüklendiğinde AdBlock kontrolü yap

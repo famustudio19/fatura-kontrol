@@ -172,31 +172,68 @@
 
 </div><!-- /page-layout -->
 
-<!-- ─── REKLAM İZLE MODAL ─── -->
+<!-- ─── REKLAM İZLE / HAK KAZAN MODAL ─── -->
 <div class="reward-modal-overlay" id="rewardModalOverlay">
   <div class="reward-modal">
-    <h3>📺 Reklam İzle, Hak Kazan!</h3>
-    <p>Kısa bir reklam izleyerek <strong>+{{ ad_reward }} PDF</strong> işleme hakkı kazanın.</p>
+    <!-- 1. NORMAL AFİŞ REKLAM GÖRÜNÜMÜ -->
+    <div id="rewardNormalView">
+      <h3>📺 Reklam İzle, Hak Kazan!</h3>
+      <p>Kısa bir reklam izleyerek <strong>+{{ ad_reward }} PDF</strong> işleme hakkı kazanın.</p>
 
-    <div class="reward-placeholder">
-      <script>
-        atOptions = {
-          'key' : '5c72484b3cd463087eca96182a5ca135',
-          'format' : 'iframe',
-          'height' : 250,
-          'width' : 300,
-          'params' : {}
-        };
-      </script>
-      <script src="https://airtightmodification.com/5c72484b3cd463087eca96182a5ca135/invoke.js"></script>
-      <div class="reward-timer" id="rewardTimerDisplay">5</div>
+      <div class="reward-placeholder">
+        <script>
+          atOptions = {
+            'key' : '5c72484b3cd463087eca96182a5ca135',
+            'format' : 'iframe',
+            'height' : 250,
+            'width' : 300,
+            'params' : {}
+          };
+        </script>
+        <script src="https://airtightmodification.com/5c72484b3cd463087eca96182a5ca135/invoke.js"></script>
+        <div class="reward-timer" id="rewardTimerDisplay">5</div>
+      </div>
+
+      <button class="btn-claim" id="btnClaimReward" disabled onclick="claimReward()">
+        ⏳ Lütfen bekleyin...
+      </button>
+
+      <div class="smartlink-switch-wrap">
+        <a href="javascript:void(0)" onclick="switchToSmartlink()" class="smartlink-switch-btn">
+          ⚡ Reklam görünmüyor mu? Sponsor linkiyle kazan ➔
+        </a>
+      </div>
     </div>
 
-    <button class="btn-claim" id="btnClaimReward" disabled onclick="claimReward()">
-      ⏳ Lütfen bekleyin...
-    </button>
+    <!-- 2. ALTERNATİF SMARTLINK (TSE / KURUMSAL AĞ / ADBLOCK) GÖRÜNÜMÜ -->
+    <div id="rewardSmartlinkView" style="display: none;">
+      <div class="smartlink-badge">🛡️ Alternatif Sponsor Bağlantısı</div>
+      <h3>⚡ Tek Tıkla +{{ ad_reward }} Hak Kazan!</h3>
+      <p class="smartlink-desc">
+        Ağınızda afiş reklamları engellendiği için aşağıdaki sponsor bağlantısını açarak anında <strong>+{{ ad_reward }} PDF hakkı</strong> kazanabilirsiniz:
+      </p>
+
+      <div class="smartlink-action-card">
+        <a href="https://airtightmodification.com/aha6sbm1zt?key=7cb6fb4391196c5920f6a031c480ce1a" 
+           target="_blank" 
+           rel="noopener noreferrer" 
+           id="btnSmartlinkClaim" 
+           class="btn-smartlink" 
+           onclick="handleSmartlinkClick()">
+          🚀 Sponsor Bağlantısını Aç (+{{ ad_reward }} Hak Al)
+        </a>
+        <span class="smartlink-subhint">👆 Link yeni sekmede açılacak ve hakkınız anında hesabınıza eklenecektir.</span>
+      </div>
+
+      <div class="smartlink-switch-wrap">
+        <a href="javascript:void(0)" onclick="switchToBannerAd()" class="smartlink-switch-btn">
+          ⬅ Standart afiş reklamına dön
+        </a>
+      </div>
+    </div>
+
     <br>
-    <button class="btn-modal-close" onclick="closeAdModal()">İptal et</button>
+    <button class="btn-modal-close" onclick="closeAdModal()">Kapat / İptal</button>
   </div>
 </div>
 
@@ -220,29 +257,29 @@
     <div class="ab-icon-wrap">
       <span class="ab-shield-icon">🛡️</span>
     </div>
-    <h3 class="ab-title">Reklam Engelleyici (AdBlock) Tespit Edildi</h3>
+    <h3 class="ab-title">Reklam Engelleyici / Kurumsal Ağ Tespit Edildi</h3>
     <p class="ab-desc">
-      <strong>Fatura Aktarım Otomasyonu</strong>'nu sizlere tamamen <strong>ücretsiz</strong> sunabilmemiz için sunucu ve geliştirme masraflarını reklam gelirleriyle karşılıyoruz.
+      Sitemiz ücretsiz sunulabilmek için reklam gelirleriyle desteklenmektedir. 
+      Eğer bir reklam engelleyici (AdBlock) kullanıyorsanız lütfen devre dışı bırakın.
     </p>
     
     <div class="ab-steps">
       <div class="ab-step-item">
         <span class="ab-step-num">1</span>
-        <span>Tarayıcınızın sağ üstündeki <strong>AdBlock</strong> eklentisi simgesine tıklayın.</span>
+        <span>Tarayıcınızdaki <strong>AdBlock</strong> eklentisini bu site için duraklatın.</span>
       </div>
       <div class="ab-step-item">
         <span class="ab-step-num">2</span>
-        <span><strong>"Bu sitede duraklat"</strong> veya <strong>"Devre dışı bırak"</strong> seçeneğini seçin.</span>
-      </div>
-      <div class="ab-step-item">
-        <span class="ab-step-num">3</span>
-        <span>Aşağıdaki butona basarak sayfayı yenileyin.</span>
+        <span><strong>TSE / Kurumsal ağ</strong> kullanıyorsanız aşağıdaki butona tıklayarak devam edebilirsiniz.</span>
       </div>
     </div>
 
     <div class="ab-actions">
       <button class="btn-ab-reload" onclick="location.reload()">
         🔄 Reklam Engelleyiciyi Kapattım, Sayfayı Yenile
+      </button>
+      <button class="btn-ab-continue" onclick="dismissAbNotice()">
+        🏢 TSE / Kurumsal Ağdayım (3 Ücretsiz Hakla Devam Et)
       </button>
     </div>
   </div>

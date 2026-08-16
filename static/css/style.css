@@ -616,14 +616,94 @@ body {
 .btn-ab-continue {
   background: none;
   border: none;
-  color: #94A3B8;
-  font-size: 0.82rem;
+  color: #64748B;
+  font-size: 0.85rem;
   cursor: pointer;
-  padding: 6px;
+  padding: 8px;
   text-decoration: underline;
   transition: color 0.2s;
+  margin-top: 4px;
 }
 
 .btn-ab-continue:hover {
-  color: #64748B;
+  color: var(--tse-red, #B91C1C);
 }
+
+/* ─── SMARTLINK / ALTERNATİF REKLAM KARTI ─── */
+.smartlink-badge {
+  display: inline-block;
+  background: #FEF3C7;
+  color: #92400E;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  margin-bottom: 12px;
+  border: 1px solid #FDE68A;
+}
+
+.smartlink-desc {
+  font-size: 0.9rem;
+  color: #475569;
+  line-height: 1.5;
+  margin-bottom: 16px !important;
+}
+
+.smartlink-action-card {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 14px;
+  padding: 16px 14px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-smartlink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
+  color: #FFFFFF !important;
+  text-decoration: none;
+  padding: 14px 16px;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);
+  transition: all 0.2s ease;
+}
+
+.btn-smartlink:hover {
+  background: linear-gradient(135deg, #1D4ED8 0%, #1E40AF 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
+}
+
+.smartlink-subhint {
+  font-size: 0.76rem;
+  color: #64748B;
+  text-align: center;
+}
+
+.smartlink-switch-wrap {
+  margin-top: 14px;
+  text-align: center;
+}
+
+.smartlink-switch-btn {
+  font-size: 0.82rem;
+  color: #2563EB;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.15s;
+}
+
+.smartlink-switch-btn:hover {
+  color: #1D4ED8;
+  text-decoration: underline;
+}
+
