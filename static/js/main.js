@@ -354,7 +354,7 @@ function loadModalBannerAd() {
         'params' : {}
       };
     <\/script>
-    <script type="text/javascript" src="https://airtightmodification.com/5c72484b3cd463087eca96182a5ca135/invoke.js"><\/script>
+    <script type="text/javascript" src="https://consistinvention.com/5c72484b3cd463087eca96182a5ca135/invoke.js"><\/script>
   </body>
 </html>`;
 
