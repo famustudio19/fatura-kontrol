@@ -138,7 +138,7 @@ def extract_data_from_pdf(pdf_path):
         raw = []
         for p in pdf.pages:
             for table in p.extract_tables():
-                hi=prj=tab=btr=-1
+                hi=prj=tab=btr=kap=-1
                 for i, row in enumerate(table):
                     rc=[str(c).replace('\n',' ').strip() if c else '' for c in row]
                     joined=' '.join(rc)
@@ -148,9 +148,10 @@ def extract_data_from_pdf(pdf_path):
                             if 'Proje Kay' in cell: prj=j
                             elif 'Tabanca' in cell or 'Saya' in cell: tab=j
                             # Sadece "Başvuru Türü" sütununu yakala; "Yakıt Türü" ile karışmasın
-                            # btr bir kez ayarlandıktan sonra üzerine yazma
                             elif btr == -1 and ('Başvuru' in cell or 'Basvuru' in cell or 'Muayene Tür' in cell):
                                 btr=j
+                            elif kap == -1 and ('Kapasite' in cell or 'Kapasitesi' in cell or 'Kap.' in cell):
+                                kap=j
                         break
                 if hi!=-1 and prj!=-1:
                     for row in table[hi+1:]:
@@ -164,27 +165,69 @@ def extract_data_from_pdf(pdf_path):
                                 bt=""
                                 if btr!=-1 and len(row)>btr and row[btr]:
                                     bt=str(row[btr]).replace('\n',' ').strip()
-                                raw.append({'proje_no':pno,'adet':adet,'basvuru_turu':bt})
+                                
+                                # Kantar / Tartı aleti kapasite bilgisi
+                                kap_val = 0.0
+                                if kap!=-1 and len(row)>kap and row[kap]:
+                                    val_str = str(row[kap]).replace('\n', ' ').strip()
+                                    val_clean = val_str.replace('.', '').replace(',', '.')
+                                    m_k = re.search(r'(\d+(?:\.\d+)?)', val_clean)
+                                    if m_k:
+                                        try:
+                                            kap_val = float(m_k.group(1))
+                                            # Eğer ton birimindeyse veya küçük sayı girildiyse kg'ye çevir
+                                            if 'ton' in val_str.lower() or kap_val <= 150:
+                                                kap_val = kap_val * 1000.0
+                                        except: pass
+                                
+                                raw.append({'proje_no':pno,'adet':adet,'basvuru_turu':bt,'kapasite':kap_val})
 
         grouped={}
         for item in raw:
             pfx=item['proje_no'].split('-')[0].upper()
-            # Sadece tablodaki "Başvuru Türü" sütununa bak
             is_tas=any(k in item['basvuru_turu'].upper() for k in ('TAS','TAMİR','TAMIR'))
-            key=f"{pfx}_{'TAS' if is_tas else 'PER'}"
-            if key not in grouped: grouped[key]={'prefix':pfx,'is_tas':is_tas,'adet':0}
-            grouped[key]['adet']+=item['adet']
+            sfx='TAS' if is_tas else 'Periyodik, Stok'
 
-        MAP={
-            'AKR':('Akaryakıt_LPG_Adblue_Dispenserleri','Mak. Akış Hızı 130 L/dk-100 kg/dk Kadar-({})'),
-            'LHB':('Lastik_Hava_Basınçölçerler','Lastik Hava Basınçölçerler'),
-            'TNK':('Tanker_Sayaçları','Tanker Sayaçları-({})'),
-            'TRT':('Tartı_Aletleri','Tartı Aletleri-({})'),
-        }
+            if pfx == 'TRT':
+                adi = 'Tartı_Aletleri'
+                kap = item.get('kapasite', 0.0)
+                if kap > 30000:
+                    bilgisi = f'Mak. Kap. 30.001 kg ve Üzeri-({sfx})'
+                    key = f'TRT_{sfx}_GT30'
+                else:
+                    bilgisi = f'Mak. Kap. 2.000-30.000 kg Arası-({sfx})'
+                    key = f'TRT_{sfx}_LE30'
+            elif pfx == 'AKR':
+                adi = 'Akaryakıt_LPG_Adblue_Dispenserleri'
+                bilgisi = f'Mak. Akış Hızı 130 L/dk-100 kg/dk Kadar-({sfx})'
+                key = f'AKR_{sfx}'
+            elif pfx == 'TNK':
+                adi = 'Tanker_Sayaçları'
+                bilgisi = f'Tanker Sayaçları-({sfx})'
+                key = f'TNK_{sfx}'
+            elif pfx == 'LHB':
+                adi = 'Lastik_Hava_Basınçölçerler'
+                bilgisi = 'Lastik Hava Basınçölçerler'
+                key = 'LHB'
+            elif pfx == 'CNG':
+                adi = 'CNG_Dispenserleri'
+                bilgisi = f'CNG Dispenserleri-({sfx})'
+                key = f'CNG_{sfx}'
+            elif pfx == 'AKS':
+                adi = 'Aks_Kantarları'
+                bilgisi = f'({sfx})'
+                key = f'AKS_{sfx}'
+            else:
+                adi = pfx
+                bilgisi = f'{pfx}-({sfx})'
+                key = f'{pfx}_{sfx}'
+
+            if key not in grouped:
+                grouped[key] = {'adi': adi, 'bilgisi': bilgisi, 'adet': 0}
+            grouped[key]['adet'] += item['adet']
+
         for val in grouped.values():
-            sfx='TAS' if val['is_tas'] else 'Periyodik, Stok'
-            adi,bil=MAP.get(val['prefix'],(val['prefix'],val['prefix']))
-            data['items'].append({'adi':adi,'bilgisi':bil.format(sfx) if '{}' in bil else bil,'adet':val['adet']})
+            data['items'].append({'adi': val['adi'], 'bilgisi': val['bilgisi'], 'adet': val['adet']})
 
         if not data['items']:
             data['items'].append({'adi':'Bulunamadı','bilgisi':'Bulunamadı','adet':1})
