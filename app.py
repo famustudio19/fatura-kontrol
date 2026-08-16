@@ -266,17 +266,23 @@ def load_price_lookup(template_path):
                 return lookup
             sheet2 = z.read('xl/worksheets/sheet2.xml').decode('utf-8')
             ss = z.read('xl/sharedStrings.xml').decode('utf-8') if 'xl/sharedStrings.xml' in z.namelist() else ""
-            strings = re.findall(r'<si>.*?</si>', ss, re.DOTALL)
+            
+            # Doğru <si> bazlı shared string okuma
+            si_list = re.findall(r'<si.*?>(.*?)</si>', ss, re.DOTALL)
+            strings = []
+            for si in si_list:
+                parts = re.findall(r'<t[^>]*>(.*?)</t>', si, re.DOTALL)
+                strings.append(''.join(parts))
             
             def get_str(idx):
                 if idx < len(strings):
-                    m = re.search(r'<t[^>]*>(.*?)</t>', strings[idx])
-                    return m.group(1) if m else ''
+                    return strings[idx]
                 return ''
 
             rows = re.findall(r'<row r="(\d+)"[^>]*>(.*?)</row>', sheet2, re.DOTALL)
             for r_num, r_content in rows:
-                cells = re.findall(r'<c r="([A-Z]+\d+)"([^>]*)(?:/>|>(.*?)</c>)', r_content, re.DOTALL)
+                # [^>]*? kullanarak boş (self-closing) hücrelerin sonraki hücreyi yutmasını engelliyoruz
+                cells = re.findall(r'<c r="([A-Z]+\d+)"([^>]*?)(?:/>|>(.*?)</c>)', r_content, re.DOTALL)
                 c_val = d_val = e_val = ""
                 for ref, attrs, val in cells:
                     v_match = re.search(r'<v>(.*?)</v>', val) if val else None
@@ -309,10 +315,12 @@ def load_shared_string_index(template_path):
             if 'xl/sharedStrings.xml' not in z.namelist():
                 return idx_map
             ss = z.read('xl/sharedStrings.xml').decode('utf-8')
-            # Tüm <t> içeriklerini sırasıyla al
-            texts = re.findall(r'<t[^>]*>(.*?)</t>', ss)
-            for i, txt in enumerate(texts):
-                idx_map[txt.strip()] = i
+            # <t> tag'lerini <si> bloklarına göre doğru indekslemek
+            si_list = re.findall(r'<si.*?>(.*?)</si>', ss, re.DOTALL)
+            for i, si in enumerate(si_list):
+                parts = re.findall(r'<t[^>]*>(.*?)</t>', si, re.DOTALL)
+                text = ''.join(parts)
+                idx_map[text.strip()] = i
     except Exception as e:
         print(f"SharedStrings okuma uyarısı: {e}")
     return idx_map
@@ -321,7 +329,7 @@ def fill_template_lossless(template_path, output_path, data):
     """Excel şablonundaki kırmızı başlık, logo, formüller ve fiyatları %100 hatasız işler."""
     price_lookup = load_price_lookup(template_path)
     ss_index = load_shared_string_index(template_path)  # Açılır liste hücreleri için
-    
+
     with zipfile.ZipFile(template_path, 'r') as zin:
         sheet_xml = zin.read('xl/worksheets/sheet1.xml').decode('utf-8')
         rels_xml = zin.read('xl/_rels/workbook.xml.rels').decode('utf-8') if 'xl/_rels/workbook.xml.rels' in zin.namelist() else ""
